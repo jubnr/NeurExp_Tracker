@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/app_icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NeurExp Tracker</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        background: #f8fafc;
+      }
+
+      #splash {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        gap: 0;
+        background: linear-gradient(160deg, #f0f4ff 0%, #f8fafc 50%, #f0faf8 100%);
+      }
+
+      #splash .logo {
+        width: 140px;
+        height: 140px;
+        -o-object-fit: contain;
+           object-fit: contain;
+        margin-bottom: 20px;
+        filter: drop-shadow(0 4px 16px rgba(99, 84, 181, 0.18));
+        animation: fadeUp 0.5s ease both;
+      }
+
+      #splash .title {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: -0.04em;
+        animation: fadeUp 0.5s 0.1s ease both;
+      }
+
+      #splash .subtitle {
+        font-size: 0.9rem;
+        color: #94a3b8;
+        margin-top: 8px;
+        letter-spacing: 0.01em;
+        animation: fadeUp 0.5s 0.2s ease both;
+      }
+
+      #splash .dots {
+        display: flex;
+        gap: 6px;
+        margin-top: 40px;
+        animation: fadeUp 0.5s 0.35s ease both;
+      }
+
+      #splash .dots span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #998ee0;
+        animation: pulse 1.2s ease-in-out infinite;
+      }
+
+      #splash .dots span:nth-child(2) { animation-delay: 0.2s; }
+      #splash .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+      @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 0.25; transform: scale(0.8); }
+        50%       { opacity: 1;    transform: scale(1); }
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index.dde1fa90.js"></script>
+    <link rel="stylesheet" href="/assets/index.bef71b49.css">
+  </head>
+  <body>
+    <div id="root">
+      <div id="splash">
+        <img src="/app_icon_nobg.png" alt="NeurExp Tracker" class="logo" />
+        <div class="title">NeurExp Tracker</div>
+        <div class="subtitle">Neuroimaging acquisition tracking</div>
+        <div class="dots">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+    
+  </body>
+</html>
