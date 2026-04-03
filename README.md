@@ -2,6 +2,7 @@
 
 # NeurExp Tracker
 
+
 A web application for tracking neuroimaging study acquisitions — designed for research labs running experiments on **MEG**, **3T MRI**, and/or **7T MRI** machines.
 
 Built to replace scattered spreadsheets with a single, structured tool that follows participants from recruitment all the way through every session and run.
