@@ -1,4 +1,4 @@
-<img src="public/app_icon_nobg.png" alt="NeurExp Tracker logo" width="85" align="left" style="margin-right:12px"/>
+<img src="public/app_icon_nobg.png" alt="NeurExp Tracker logo" width=85" align="left" style="margin-right:12px"/>
 
 # NeurExp Tracker
 
@@ -6,6 +6,9 @@
 A web application for tracking neuroimaging study acquisitions — designed for research labs running experiments on **MEG**, **3T MRI**, and/or **7T MRI** machines.
 
 Built to replace scattered spreadsheets with a single, structured tool that follows participants from recruitment all the way through every session and run.
+
+> [!IMPORTANT]
+> Try it now on: https://neurexptracker.netlify.app/
 
 ---
 
