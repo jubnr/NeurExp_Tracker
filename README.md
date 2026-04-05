@@ -1,4 +1,4 @@
-<img src="public/app_icon_nobg.png" alt="NeurExp Tracker logo" width="100" align="left" style="margin-right:12px"/>
+<img src="public/app_icon_nobg.png" alt="NeurExp Tracker logo" width="90" align="left" style="margin-right:12px"/>
 
 # NeurExp Tracker
 
@@ -27,7 +27,7 @@ You create a study, add participants, and record each acquisition session as it 
 
 ### 👤 Participants
 - Add participants one by one with a **Subject ID** (e.g. `sub-01`, auto-generated), a **NIP**, optional age, **gender** (♂ / ♀), **handedness** (right / left), and acquisition date
-- **Bulk import** from a spreadsheet: copy-paste directly from Excel or Google Sheets — the app parses the data, shows a preview with validation, and imports all valid rows at once. Recognised columns (any order): `Subject`, `NIP`, `Age`, `Acq. Date` / `First acq. date`, `Gender`, `Handedness` / `Laterality`, `MRI anat`. Date format: `DD/MM/YY` or `DD/MM/YYYY`. Gender values: `M`/`F`, `male`/`female`, `homme`/`femme`. Handedness values: `R`/`L`, `right`/`left`, `Right-handed`/`Left-handed`, `droite`/`gauche`. MRI anat: `✅ [3T 05/06/24]` (extracts both acquisition flag and date).
+- **Bulk import** from a spreadsheet: copy-paste directly from Excel or Google Sheets. The app parses the data, shows a preview with validation, and imports all valid rows at once.
 - Search participants by subject ID or NIP
 - Filter by status: Recruited / Upcoming / Completed
 - Add free-text **notes** per participant (contraindications, preferences, contacts, etc.)
@@ -37,14 +37,14 @@ You create a study, add participants, and record each acquisition session as it 
 ### ⚡ Acquisition workflow
 When starting a session for a participant, a step-by-step wizard guides you through:
 
-1. **Machine selection** — choose which machine this session is for (skipped if the study uses only one machine)
-2. **Preparation checklist** — go through each item one at a time; each step must be explicitly confirmed before moving to the next
-3. **Session notes** — optional free-text field to capture overall session quality, setup issues, or anything that affects the whole session
-4. **Runs** — for each run, record:
+1. **Machine selection:** choose which machine this session is for (skipped if the study uses only one machine)
+2. **Preparation checklist:** go through each item one at a time; each step must be explicitly confirmed before moving to the next
+3. **Session notes:** optional free-text field to capture overall session quality, setup issues, or anything that affects the whole session
+4. **Runs:** for each run, record:
    - Participant state: 😀 Alert · 😐 Neutral · 😴 Drowsy · 😵 Struggling · 😰 Anxious · 🏃 Moved excessively
    - Whether it is a resting-state run (if applicable)
    - Optional per-run notes
-5. **MEG wrap-up** *(MEG sessions only)* — a mandatory end-of-session checklist:
+5. **MEG wrap-up:** *(MEG sessions only)* a mandatory end-of-session checklist:
    - Shut down the videoprojector ✓
    - Clean the electrodes ✓
    - Put the MEG in liquefaction mode *(if last experiment of the day)*
@@ -67,15 +67,43 @@ From the participant detail page you can also:
 - **HTML report** (study-level): full overview of all participants (including gender and handedness), sessions, and runs, with a tab per participant — self-contained file, no internet required
 - **HTML report** (participant-level): detailed view of a single participant's entire history
 - **CSV export**: one row per participant, columns include Gender and Handedness, ready to open in Excel or R
+- **TSV import file**: generates a `participants_to_import.tsv` file for scanner pipeline ingestion, using acquisition dates and scanner types to determine the correct location codes
 
-### 💾 Data persistence
-All data is stored locally in your browser's **localStorage** — nothing is sent to any server.
+### 💾 Data persistence & backup
 
-> ⚠️ **Clearing your browser data will permanently erase everything. Use the export features regularly as backups.** ⚠️
+All data is stored locally in your browser's **localStorage**. Nothing is sent to any server.
+
+> ⚠️ **Clearing your browser data will permanently erase everything. Export a backup regularly.** ⚠️
+
+#### JSON backup / restore
+
+Two buttons in the top navbar handle full data portability:
+
+| Button | Action |
+|--------|--------|
+| ↓ **Export backup** | Downloads the entire database as `neurexp-backup-YYYY-MM-DD.json` |
+| ↑ **Import backup** | Opens a file picker, restores from a previously exported `.json` file, and reloads the app |
+
+**Transferring data to another computer:**
+1. On the source computer, click **Export backup** — a `.json` file is downloaded.
+2. On the destination computer, open the app and click **Import backup**.
+3. Select the `.json` file — all studies, participants, sessions, runs, notes, and settings are restored exactly.
+
+The backup file is a plain JSON snapshot of the Zustand store (`neurexp-storage`). It is self-contained and human-readable. Any browser on any machine can import it — no account or network required.
 
 ---
 
-## 🚀 Getting started
+## 🌐 Online access
+
+The app is hosted and ready to use. No installation required:
+
+**[https://neurexptracker.netlify.app](https://neurexptracker.netlify.app)**
+
+Works in any modern browser on any OS. All data stays in your browser's localStorage — nothing is sent to a server.
+
+---
+
+## 🚀 Running locally
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (v14 or higher recommended)
@@ -85,8 +113,8 @@ All data is stored locally in your browser's **localStorage** — nothing is sen
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/neurexp-tracker.git
-cd neurexp-tracker
+git clone https://github.com/jubnr/NeurExp_Tracker.git
+cd NeurExp_Tracker
 
 # Install dependencies
 npm install
@@ -109,15 +137,15 @@ The output will be in the `dist/` folder — ready to be served by any static fi
 
 ## 🗺️ Quick walkthrough
 
-**1. Create a study** — Click **New Study**, fill in the name, select your machines, set the expected participants and sessions. A preparation checklist is generated automatically and can be customised afterwards.
+**1. Create a study:** Click **New Study**, fill in the name, select your machines, set the expected participants and sessions. A preparation checklist is generated automatically and can be customised afterwards.
 
-**2. Add participants** — Use **Add Participant** for individual entries or **Bulk Import** to paste from your existing spreadsheet. Only a NIP is required; the subject ID is auto-generated.
+**2. Add participants:** Use **Add Participant** for individual entries or **Bulk Import** to paste from your existing spreadsheet. Only a NIP is required; the subject ID is auto-generated.
 
-**3. Record a session** — Click the green **Acquire** button next to a participant. The wizard walks you through the checklist, session notes, and each run. Progress is saved automatically.
+**3. Record a session:** Click the green **Acquire** button next to a participant. The wizard walks you through the checklist, session notes, and each run. Progress is saved automatically.
 
-**4. Review and edit** — Click any participant to see their full history — all sessions, runs, notes. Edit inline at any time.
+**4. Review and edit:** Click any participant to see their full history — all sessions, runs, notes. Edit inline at any time.
 
-**5. Export** — Use **CSV** or **HTML Report** on the study page to back up or share your data.
+**5. Export:** Use **CSV** or **HTML Report** on the study page to share your data. Use **Export backup** (↓ in the navbar) to save a full JSON snapshot of everything — and **Import backup** (↑) to restore it on any machine.
 
 ---
 
