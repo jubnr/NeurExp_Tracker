@@ -1,4 +1,4 @@
-<img src="public/app_icon_nobg.png" alt="NeurExp Tracker logo" width=85" align="left" style="margin-right:12px"/>
+<img src="public/app_icon_nobg.png" alt="NeurExp Tracker logo" width="85" align="left" style="margin-right:12px"/>
 
 # NeurExp Tracker
 
