@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ChevronRight,
@@ -15,12 +15,14 @@ import {
   X,
   Plus,
   StickyNote,
+  Brain,
 } from 'lucide-react';
 import { useStudyStore } from '../store/studyStore';
 import { ParticipantStatusBadge } from '../components/StatusBadge';
 import { MachineBadge } from '../components/MachineBadge';
 import { Modal } from '../components/Modal';
-import { formatDate, downloadParticipantReport } from '../utils/helpers';
+import { formatDate, downloadParticipantReport, downloadParticipantsToImportTSV } from '../utils/helpers';
+import { UndoToast } from '../components/UndoToast';
 import type { MachineType, ParticipantStatus, Gender, Handedness } from '../types';
 
 const PARTICIPANT_STATES = [
@@ -60,6 +62,26 @@ export function ParticipantDetail() {
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
 
+  // Undo toast
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleDelete = (message: string, action: () => void) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToastMsg(message);
+    toastTimer.current = setTimeout(() => {
+      action();
+      setToastMsg(null);
+      toastTimer.current = null;
+    }, 5000);
+  };
+
+  const undoDelete = () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = null;
+    setToastMsg(null);
+  };
+
   // Inline run editing
   const [editingRun, setEditingRun] = useState<{
     machineType: MachineType;
@@ -68,6 +90,7 @@ export function ParticipantDetail() {
   } | null>(null);
   const [editNotes, setEditNotes] = useState('');
   const [editState, setEditState] = useState('');
+  const [editCompleted, setEditCompleted] = useState(false);
 
   const study = studies.find((s) => s.id === studyId);
   const participant = study?.participants.find((p) => p.id === participantId);
@@ -127,14 +150,11 @@ export function ParticipantDetail() {
 
   // ── Sessions ─────────────────────────────────────────────────────────────────
 
-  const handleDeleteSession = (machineType: MachineType, sessionId: string, hasRuns: boolean) => {
-    const msg = hasRuns
-      ? 'Delete this session? All run data will be permanently lost.'
-      : 'Delete this empty session?';
-    if (window.confirm(msg)) {
+  const handleDeleteSession = (machineType: MachineType, sessionId: string, sessionNumber: number) => {
+    scheduleDelete(`Session ${sessionNumber} removed.`, () => {
       deleteMachineSession(study.id, participant.id, machineType, sessionId);
       setExpandedSession(null);
-    }
+    });
   };
 
   const handleAddSession = (machineType: MachineType, currentCount: number) => {
@@ -159,7 +179,7 @@ export function ParticipantDetail() {
       isRestingState: false,
       participantState: '😐 Neutral',
       notes: '',
-      completed: false,
+      completed: true,
     };
     addRun(study.id, participant.id, machineType, sessionId, newRun);
   };
@@ -168,15 +188,12 @@ export function ParticipantDetail() {
     machineType: MachineType,
     sessionId: string,
     runId: string,
-    hasNotes: boolean
+    runNumber: number
   ) => {
-    const msg = hasNotes
-      ? 'Delete this run? Its notes will be lost.'
-      : 'Delete this run?';
-    if (window.confirm(msg)) {
+    scheduleDelete(`Run ${runNumber} removed.`, () => {
       deleteRun(study.id, participant.id, machineType, sessionId, runId);
       if (editingRun?.runId === runId) setEditingRun(null);
-    }
+    });
   };
 
   // ── Run editing ───────────────────────────────────────────────────────────────
@@ -186,11 +203,13 @@ export function ParticipantDetail() {
     sessionId: string,
     runId: string,
     notes: string,
-    state: string
+    state: string,
+    completed: boolean
   ) => {
     setEditingRun({ machineType, sessionId, runId });
     setEditNotes(notes);
     setEditState(state || '😐 Neutral');
+    setEditCompleted(completed);
   };
 
   const saveRunEdit = () => {
@@ -201,7 +220,7 @@ export function ParticipantDetail() {
       editingRun.machineType,
       editingRun.sessionId,
       editingRun.runId,
-      { notes: editNotes, participantState: editState }
+      { notes: editNotes, participantState: editState, completed: editCompleted }
     );
     setEditingRun(null);
   };
@@ -235,7 +254,7 @@ export function ParticipantDetail() {
       </div>
 
       {/* Participant header */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 mb-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center shrink-0">
@@ -243,14 +262,14 @@ export function ParticipantDetail() {
             </div>
             <div>
               <div className="flex items-center gap-3 flex-wrap mb-1">
-                <h1 className="text-xl font-bold text-slate-900 font-mono">
+                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 font-mono">
                   {participant.subjectId}
                 </h1>
                 <span className="text-slate-400">·</span>
-                <span className="font-mono text-slate-600">{participant.nip}</span>
+                <span className="font-mono text-slate-600 dark:text-slate-400">{participant.nip}</span>
                 <ParticipantStatusBadge status={participant.status} size="md" />
               </div>
-              <div className="flex items-center gap-4 text-sm text-slate-500 flex-wrap">
+              <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400 flex-wrap">
                 {participant.age > 0 && <span>{participant.age} years old</span>}
                 {participant.gender && (
                   <span className={participant.gender === 'male' ? 'text-blue-600' : 'text-pink-500'}>
@@ -279,14 +298,21 @@ export function ParticipantDetail() {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => downloadParticipantReport(study, participant)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
             >
               <FileText size={13} />
               Report
             </button>
             <button
+              onClick={() => downloadParticipantsToImportTSV([participant])}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+            >
+              <Brain size={13} />
+              TSV Import
+            </button>
+            <button
               onClick={openEdit}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
             >
               <Pencil size={13} />
               Edit
@@ -314,7 +340,7 @@ export function ParticipantDetail() {
       </div>
 
       {/* Participant notes */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-6">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <StickyNote size={15} className="text-slate-400" />
@@ -338,13 +364,13 @@ export function ParticipantDetail() {
               onChange={(e) => setNotesValue(e.target.value)}
               rows={4}
               placeholder="Remarks about this participant (contraindications, preferences, contact info, etc.)"
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               autoFocus
             />
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setEditingNotes(false)}
-                className="px-3 py-1.5 text-xs text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200"
+                className="px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
               >
                 Cancel
               </button>
@@ -357,30 +383,30 @@ export function ParticipantDetail() {
             </div>
           </div>
         ) : participant.notes ? (
-          <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">
+          <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed">
             {participant.notes}
           </p>
         ) : (
-          <p className="text-sm text-slate-400 italic">No notes yet.</p>
+          <p className="text-sm text-slate-400 dark:text-slate-500 italic">No notes yet.</p>
         )}
       </div>
 
       {/* Anatomical MRI card */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6">
-        <h3 className="font-semibold text-slate-900 mb-3">Anatomical MRI</h3>
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-6">
+        <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-3">Anatomical MRI</h3>
         <div className="space-y-3">
           {(['3T', '7T'] as const).map((field) => {
             const rec = participant.anatomicalMRI?.[field];
             return (
               <div key={field} className="flex items-center gap-4 flex-wrap">
-                <span className="text-sm text-slate-500 w-6 shrink-0">{field}</span>
+                <span className="text-sm text-slate-500 dark:text-slate-400 w-6 shrink-0">{field}</span>
                 <div className="flex gap-2">
                   <button
                     onClick={() => updateAnatMRI(field, true, rec?.date)}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
                       rec?.acquired
                         ? 'bg-green-600 text-white border-green-600'
-                        : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+                        : 'bg-white dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
                     }`}
                   >
                     <CheckCircle2 size={13} />
@@ -391,7 +417,7 @@ export function ParticipantDetail() {
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
                       !rec?.acquired
                         ? 'bg-slate-700 text-white border-slate-700'
-                        : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+                        : 'bg-white dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
                     }`}
                   >
                     <Circle size={13} />
@@ -403,7 +429,7 @@ export function ParticipantDetail() {
                     type="date"
                     value={rec.date ?? ''}
                     onChange={(e) => updateAnatMRI(field, true, e.target.value || undefined)}
-                    className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 )}
               </div>
@@ -414,14 +440,14 @@ export function ParticipantDetail() {
 
       {/* Machine-track sessions */}
       <div>
-        <h2 className="font-semibold text-slate-900 mb-3">Session History</h2>
+        <h2 className="font-semibold text-slate-900 dark:text-slate-100 mb-3">Session History</h2>
 
         {participant.machineTracks.length === 0 && !canAcquire ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-400">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-10 text-center text-slate-400">
             <p className="text-sm">No sessions recorded yet.</p>
           </div>
         ) : participant.machineTracks.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-400">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-10 text-center text-slate-400">
             <p className="text-sm mb-3">No sessions recorded yet.</p>
             <button
               onClick={() => navigate(`/studies/${studyId}/participants/${participantId}/acquire`)}
@@ -435,21 +461,40 @@ export function ParticipantDetail() {
             {study.machineTypes.map((machineType) => {
               const track = participant.machineTracks.find((t) => t.machineType === machineType);
               const sessions = track?.sessions ?? [];
+              const completedSessionCount = sessions.filter((s) => s.completed).length;
 
               return (
                 <div key={machineType}>
                   {/* Machine track header */}
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <MachineBadge machine={machineType} />
-                      <span className="text-xs text-slate-400">
-                        {sessions.filter((s) => s.completed).length} /{' '}
-                        {study.sessionsPerParticipant} sessions
-                      </span>
+                      {/* Session progress dots */}
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: study.sessionsPerParticipant }).map((_, i) => {
+                          const s = sessions[i];
+                          return (
+                            <div
+                              key={i}
+                              title={s ? `Session ${s.sessionNumber}${s.completed ? ' — completed' : ' — in progress'}` : 'Not started'}
+                              className={`w-2 h-2 rounded-full transition-colors ${
+                                s?.completed
+                                  ? 'bg-green-500'
+                                  : s
+                                  ? 'bg-amber-400'
+                                  : 'bg-slate-200 dark:bg-slate-700'
+                              }`}
+                            />
+                          );
+                        })}
+                        <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">
+                          {completedSessionCount}/{study.sessionsPerParticipant}
+                        </span>
+                      </div>
                     </div>
                     <button
                       onClick={() => handleAddSession(machineType, sessions.length)}
-                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-300 px-2.5 py-1 rounded-lg transition-colors"
+                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-blue-600 border border-slate-200 dark:border-slate-700 hover:border-blue-300 px-2.5 py-1 rounded-lg transition-colors"
                     >
                       <Plus size={11} />
                       Add session
@@ -463,34 +508,52 @@ export function ParticipantDetail() {
                       {sessions.map((session) => {
                         const isExpanded = expandedSession === session.id;
                         const completedRuns = session.runs.filter((r) => r.completed).length;
-                        const hasRuns = session.runs.length > 0;
+                        const totalRuns = session.runs.length;
+                        const runProgress = totalRuns > 0 ? (completedRuns / totalRuns) * 100 : 0;
 
                         return (
                           <div
                             key={session.id}
-                            className="bg-white rounded-xl border border-slate-200 overflow-hidden"
+                            className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden"
                           >
                             {/* Session header */}
                             <div className="flex items-center">
                               <button
                                 onClick={() => setExpandedSession(isExpanded ? null : session.id)}
-                                className="flex-1 flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors"
+                                className="flex-1 flex items-center justify-between px-5 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                               >
                                 <div className="flex items-center gap-3">
                                   {session.completed ? (
-                                    <CheckCircle2 size={18} className="text-green-500 shrink-0" />
+                                    <CheckCircle2 size={16} className="text-green-500 shrink-0" />
                                   ) : (
-                                    <Circle size={18} className="text-slate-300 shrink-0" />
+                                    <Circle size={16} className="text-slate-300 shrink-0" />
                                   )}
-                                  <span className="font-semibold text-slate-900">
+                                  <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
                                     Session {session.sessionNumber}
                                   </span>
+                                  {session.date && (
+                                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                                      {formatDate(session.date)}
+                                    </span>
+                                  )}
                                 </div>
-                                <div className="flex items-center gap-4 text-sm text-slate-500">
-                                  <span>{completedRuns}/{session.runs.length} runs</span>
-                                  {session.date && <span>{formatDate(session.date)}</span>}
+                                <div className="flex items-center gap-3">
+                                  {/* Run progress bar */}
+                                  {totalRuns > 0 && (
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-green-500 rounded-full transition-all"
+                                          style={{ width: `${runProgress}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-xs text-slate-400 dark:text-slate-500 tabular-nums">
+                                        {completedRuns}/{totalRuns}
+                                      </span>
+                                    </div>
+                                  )}
                                   <ChevronDown
-                                    size={16}
+                                    size={15}
                                     className={`text-slate-400 transition-transform ${
                                       isExpanded ? 'rotate-180' : ''
                                     }`}
@@ -499,35 +562,39 @@ export function ParticipantDetail() {
                               </button>
                               <button
                                 onClick={() =>
-                                  handleDeleteSession(machineType, session.id, hasRuns)
+                                  handleDeleteSession(machineType, session.id, session.sessionNumber)
                                 }
-                                className="px-3 py-4 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                className="px-3 py-3.5 text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                 title="Delete session"
                               >
-                                <Trash2 size={14} />
+                                <Trash2 size={13} />
                               </button>
                             </div>
 
-                            {/* Expanded: session notes + runs */}
+                            {/* Expanded: session notes + compact run list */}
                             {isExpanded && (
-                              <div className="border-t border-slate-100 px-6 py-4 space-y-4">
-                                {/* Session-level notes */}
+                              <div className="border-t border-slate-100 dark:border-slate-700">
+                                {/* Session notes */}
                                 {session.notes && (
-                                  <div className="bg-amber-50 border border-amber-100 rounded-lg px-4 py-3">
-                                    <p className="text-xs font-medium text-amber-700 mb-1">
-                                      Session notes
-                                    </p>
-                                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-                                      {session.notes}
-                                    </p>
+                                  <div className="px-5 pt-3 pb-2">
+                                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40 rounded-lg px-4 py-3">
+                                      <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-1">
+                                        Session notes
+                                      </p>
+                                      <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                                        {session.notes}
+                                      </p>
+                                    </div>
                                   </div>
                                 )}
 
-                                {/* Runs */}
+                                {/* Compact run list */}
                                 {session.runs.length === 0 ? (
-                                  <p className="text-sm text-slate-400 italic">No runs recorded.</p>
+                                  <p className="text-sm text-slate-400 dark:text-slate-500 italic px-5 py-3">
+                                    No runs recorded.
+                                  </p>
                                 ) : (
-                                  <div className="space-y-2">
+                                  <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
                                     {session.runs.map((run) => {
                                       const isEditing =
                                         editingRun?.runId === run.id &&
@@ -538,19 +605,12 @@ export function ParticipantDetail() {
                                       const stateLabel = stateParts.slice(1).join(' ');
 
                                       return (
-                                        <div
-                                          key={run.id}
-                                          className={`rounded-lg border ${
-                                            run.completed
-                                              ? 'border-green-200 bg-green-50'
-                                              : 'border-slate-200 bg-slate-50'
-                                          }`}
-                                        >
+                                        <div key={run.id}>
                                           {isEditing ? (
                                             /* Edit mode */
-                                            <div className="p-3 space-y-3">
-                                              <div className="flex items-center justify-between mb-1">
-                                                <span className="text-sm font-medium text-slate-700">
+                                            <div className="px-5 py-3 space-y-3 bg-slate-50 dark:bg-slate-700/30">
+                                              <div className="flex items-center justify-between">
+                                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                                                   Run {run.runNumber}
                                                 </span>
                                                 <div className="flex gap-1">
@@ -562,7 +622,7 @@ export function ParticipantDetail() {
                                                   </button>
                                                   <button
                                                     onClick={() => setEditingRun(null)}
-                                                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200"
+                                                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
                                                   >
                                                     <X size={14} />
                                                   </button>
@@ -583,8 +643,8 @@ export function ParticipantDetail() {
                                                         onClick={() => setEditState(val)}
                                                         className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${
                                                           editState === val
-                                                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                                            : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300'
                                                         }`}
                                                       >
                                                         <span>{emoji}</span>
@@ -594,83 +654,107 @@ export function ParticipantDetail() {
                                                   })}
                                                 </div>
                                               </div>
+                                              {/* Completed toggle */}
+                                              <button
+                                                type="button"
+                                                onClick={() => setEditCompleted((v) => !v)}
+                                                className="flex items-center gap-2 text-xs"
+                                              >
+                                                <div className={`w-8 h-4 rounded-full relative shrink-0 transition-colors ${editCompleted ? 'bg-green-500' : 'bg-slate-200 dark:bg-slate-600'}`}>
+                                                  <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${editCompleted ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                                </div>
+                                                <span className="text-slate-600 dark:text-slate-300 font-medium">Completed</span>
+                                              </button>
                                               {/* Notes */}
                                               <textarea
                                                 value={editNotes}
                                                 onChange={(e) => setEditNotes(e.target.value)}
-                                                rows={4}
+                                                rows={3}
                                                 placeholder="Notes..."
-                                                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                                className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                                 autoFocus
                                               />
                                             </div>
                                           ) : (
-                                            /* View mode */
-                                            <div className="px-4 py-3">
-                                              <div className="flex items-center justify-between mb-1.5">
-                                                <div className="flex items-center gap-2">
-                                                  <span className="text-sm font-medium text-slate-700">
-                                                    Run {run.runNumber}
-                                                  </span>
-                                                  {run.isRestingState && (
-                                                    <span className="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
-                                                      Resting state
-                                                    </span>
-                                                  )}
-                                                  <span
-                                                    className="text-base leading-none"
-                                                    title={stateLabel}
-                                                  >
-                                                    {stateEmoji}
-                                                  </span>
-                                                  <span className="text-xs text-slate-400">
-                                                    {stateLabel}
-                                                  </span>
-                                                </div>
-                                                <div className="flex items-center gap-1.5">
-                                                  {run.completed && (
-                                                    <CheckCircle2 size={13} className="text-green-500" />
-                                                  )}
-                                                  <button
-                                                    onClick={() =>
-                                                      startEditRun(
-                                                        machineType,
-                                                        session.id,
-                                                        run.id,
-                                                        run.notes,
-                                                        run.participantState
-                                                      )
-                                                    }
-                                                    className="p-1 text-slate-300 hover:text-blue-500 rounded transition-colors"
-                                                    title="Edit run"
-                                                  >
-                                                    <Pencil size={12} />
-                                                  </button>
-                                                  <button
-                                                    onClick={() =>
-                                                      handleDeleteRun(
-                                                        machineType,
-                                                        session.id,
-                                                        run.id,
-                                                        Boolean(run.notes)
-                                                      )
-                                                    }
-                                                    className="p-1 text-slate-300 hover:text-red-500 rounded transition-colors"
-                                                    title="Delete run"
-                                                  >
-                                                    <Trash2 size={12} />
-                                                  </button>
-                                                </div>
-                                              </div>
-                                              {run.notes ? (
-                                                <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">
-                                                  {run.notes}
-                                                </p>
-                                              ) : (
-                                                <p className="text-xs text-slate-400 italic">
-                                                  No notes — click edit to add
-                                                </p>
+                                            /* Compact view row */
+                                            <div className="flex items-center gap-3 px-5 py-2.5 group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                                              {/* Inline completion toggle */}
+                                              <button
+                                                onClick={() =>
+                                                  updateRun(
+                                                    study.id,
+                                                    participant.id,
+                                                    machineType,
+                                                    session.id,
+                                                    run.id,
+                                                    { completed: !run.completed }
+                                                  )
+                                                }
+                                                className="shrink-0 transition-colors"
+                                                title={run.completed ? 'Mark incomplete' : 'Mark complete'}
+                                              >
+                                                {run.completed ? (
+                                                  <CheckCircle2 size={15} className="text-green-500" />
+                                                ) : (
+                                                  <Circle size={15} className="text-slate-300 hover:text-slate-400" />
+                                                )}
+                                              </button>
+
+                                              {/* Run number */}
+                                              <span className="text-sm font-medium text-slate-700 dark:text-slate-300 w-12 shrink-0">
+                                                Run {run.runNumber}
+                                              </span>
+
+                                              {/* State emoji */}
+                                              <span className="text-base leading-none shrink-0" title={stateLabel}>
+                                                {stateEmoji}
+                                              </span>
+
+                                              {/* Resting state tag */}
+                                              {run.isRestingState && (
+                                                <span className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded shrink-0">
+                                                  RS
+                                                </span>
                                               )}
+
+                                              {/* Notes preview */}
+                                              <span className="flex-1 text-xs text-slate-400 dark:text-slate-500 truncate">
+                                                {run.notes || <span className="italic">No notes</span>}
+                                              </span>
+
+                                              {/* Actions — visible on hover */}
+                                              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                                <button
+                                                  onClick={() =>
+                                                    startEditRun(
+                                                      machineType,
+                                                      session.id,
+                                                      run.id,
+                                                      run.notes,
+                                                      run.participantState,
+                                                      run.completed
+                                                    )
+                                                  }
+                                                  className="p-1 text-slate-400 hover:text-blue-500 rounded transition-colors"
+                                                  title="Edit run"
+                                                >
+                                                  <Pencil size={12} />
+                                                </button>
+                                                <button
+                                                  onClick={() =>
+                                                    handleDeleteRun(
+                                                      machineType,
+                                                      session.id,
+                                                      run.id,
+                                                      run.runNumber
+                                                    )
+                                                  }
+                                                  className="p-1 text-slate-400 hover:text-red-500 rounded transition-colors"
+                                                  title="Delete run"
+                                                >
+                                                  <Trash2 size={12} />
+                                                </button>
+                                              </div>
                                             </div>
                                           )}
                                         </div>
@@ -680,15 +764,17 @@ export function ParticipantDetail() {
                                 )}
 
                                 {/* Add run button */}
-                                <button
-                                  onClick={() =>
-                                    handleAddRun(machineType, session.id, session.runs.length)
-                                  }
-                                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 border border-dashed border-slate-300 hover:border-blue-300 px-3 py-2 rounded-lg w-full justify-center transition-colors"
-                                >
-                                  <Plus size={12} />
-                                  Add run
-                                </button>
+                                <div className="px-5 py-3">
+                                  <button
+                                    onClick={() =>
+                                      handleAddRun(machineType, session.id, session.runs.length)
+                                    }
+                                    className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 border border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-300 px-3 py-2 rounded-lg w-full justify-center transition-colors"
+                                  >
+                                    <Plus size={12} />
+                                    Add run
+                                  </button>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -704,22 +790,25 @@ export function ParticipantDetail() {
       </div>
 
       {/* Edit modal */}
+      {toastMsg && (
+        <UndoToast message={toastMsg} onUndo={undoDelete} onDismiss={undoDelete} />
+      )}
       <Modal open={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Participant">
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Age</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Age</label>
             <input
               type="number"
               value={editAge}
               onChange={(e) => setEditAge(e.target.value)}
               min={0}
               max={120}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Gender</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Gender</label>
               <div className="flex gap-2">
                 {(['male', 'female'] as Gender[]).map((g) => (
                   <button
@@ -731,7 +820,7 @@ export function ParticipantDetail() {
                         ? g === 'male'
                           ? 'bg-blue-600 text-white border-blue-600'
                           : 'bg-pink-500 text-white border-pink-500'
-                        : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+                        : 'bg-white dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
                     }`}
                   >
                     <span className="text-base leading-none">{g === 'male' ? '♂' : '♀'}</span>
@@ -741,7 +830,7 @@ export function ParticipantDetail() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Handedness</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Handedness</label>
               <div className="flex gap-2">
                 {(['right', 'left'] as Handedness[]).map((h) => (
                   <button
@@ -751,7 +840,7 @@ export function ParticipantDetail() {
                     className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium border transition-colors ${
                       editHandedness === h
                         ? 'bg-slate-700 text-white border-slate-700'
-                        : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+                        : 'bg-white dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
                     }`}
                   >
                     <span className="text-base leading-none">{h === 'right' ? '🤜' : '🤛'}</span>
@@ -762,18 +851,18 @@ export function ParticipantDetail() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Acquisition date
             </label>
             <input
               type="date"
               value={editDate}
               onChange={(e) => setEditDate(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Status</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Status</label>
             <div className="flex gap-2">
               {(['recruited', 'upcoming', 'completed'] as ParticipantStatus[]).map((s) => (
                 <button
@@ -794,7 +883,7 @@ export function ParticipantDetail() {
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={() => setShowEditModal(false)}
-              className="px-4 py-2 text-sm text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200"
+              className="px-4 py-2 text-sm text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
             >
               Cancel
             </button>

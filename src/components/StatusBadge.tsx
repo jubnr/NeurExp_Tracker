@@ -1,15 +1,16 @@
 import type { StudyStatus, ParticipantStatus } from '../types';
 
 const STUDY_STATUS_CONFIG: Record<StudyStatus, { label: string; className: string }> = {
-  to_be_scheduled: { label: 'To be scheduled', className: 'bg-slate-100 text-slate-600' },
-  recruiting: { label: 'Recruiting', className: 'bg-amber-100 text-amber-700' },
-  completed: { label: 'Completed', className: 'bg-green-100 text-green-700' },
+  to_be_scheduled: { label: 'To be scheduled', className: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' },
+  recruiting: { label: 'Recruiting', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+  active: { label: 'Active', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+  completed: { label: 'Completed', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
 };
 
 const PARTICIPANT_STATUS_CONFIG: Record<ParticipantStatus, { label: string; className: string }> = {
-  recruited: { label: 'Recruited', className: 'bg-slate-100 text-slate-600' },
-  upcoming: { label: 'Upcoming', className: 'bg-blue-100 text-blue-700' },
-  completed: { label: 'Completed', className: 'bg-green-100 text-green-700' },
+  recruited: { label: 'Recruited', className: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' },
+  upcoming: { label: 'Upcoming', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+  completed: { label: 'Completed', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
 };
 
 interface StudyStatusBadgeProps {

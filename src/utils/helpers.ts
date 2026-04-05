@@ -73,10 +73,12 @@ export function parseAnatMRI(raw: string): AnatomicalMRIMap {
 // ─── Study-level helpers ──────────────────────────────────────────────────────
 
 export function getStudyStatus(study: Study): StudyStatus {
-  const completed = study.participants.filter((p) => p.status === 'completed').length;
-  if (study.expectedParticipants > 0 && completed >= study.expectedParticipants) return 'completed';
-  if (study.participants.length > 0) return 'recruiting';
-  return 'to_be_scheduled';
+  if (study.participants.length === 0) return 'to_be_scheduled';
+  const allCompleted = study.participants.every((p) => p.status === 'completed');
+  if (allCompleted && study.participants.length >= study.expectedParticipants) return 'completed';
+  if (study.participants.length < study.expectedParticipants) return 'recruiting';
+  // Enrollment target met but data collection still in progress
+  return 'active';
 }
 
 /** Participant-level progress only — sessions are tracked separately per machine. */
@@ -523,4 +525,67 @@ export function downloadParticipantReport(study: Study, participant: Participant
     `${study.name.replace(/\s+/g, '_')}_${participant.subjectId || participant.nip}_report.html`,
     'text/html'
   );
+}
+
+// ─── participants_to_import.tsv generator ─────────────────────────────────────
+
+const TSV_HEADER = 'participant_id\tNIP\tinfos_participant\tsession_label\tacq_date\tacq_label\tlocation\tto_import';
+
+function getLocation(scannerType: '3T' | '7T', acqDate: string): string {
+  // "from September 2025 onward" means acqDate >= '2025-09-01'
+  const isBefore = acqDate < '2025-09-01';
+  if (isBefore) return scannerType === '3T' ? 'prisma' : '7t';
+  return scannerType === '3T' ? 'cimax' : 'terrax';
+}
+
+export function generateParticipantsToImportTSV(participants: Participant[]): string {
+  const rows: string[] = [TSV_HEADER];
+  for (const p of participants) {
+    for (const scannerType of ['3T', '7T'] as const) {
+      const rec = p.anatomicalMRI[scannerType];
+      if (!rec?.acquired || !rec.date) continue;
+      const location = getLocation(scannerType, rec.date);
+      rows.push([p.subjectId.toLowerCase(), p.nip.toLowerCase(), '', '', rec.date, '', location, ''].join('\t'));
+    }
+  }
+  return rows.join('\n');
+}
+
+export function downloadParticipantsToImportTSV(participants: Participant[]): void {
+  triggerDownload(
+    generateParticipantsToImportTSV(participants),
+    'participants_to_import.tsv',
+    'text/tab-separated-values'
+  );
+}
+
+// ─── Backup / Restore ─────────────────────────────────────────────────────────
+
+const STORAGE_KEY = 'neurexp-storage';
+
+export function exportBackup(): void {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
+  const date = new Date().toISOString().split('T')[0];
+  triggerDownload(raw, `neurexp-backup-${date}.json`, 'application/json');
+}
+
+export function importBackup(file: File): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        // Validate it's parseable JSON with the expected shape
+        const parsed = JSON.parse(text);
+        if (!parsed.state?.studies) throw new Error('Invalid backup file.');
+        localStorage.setItem(STORAGE_KEY, text);
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(new Error('Could not read file.'));
+    reader.readAsText(file);
+  });
 }

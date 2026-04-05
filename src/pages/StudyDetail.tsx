@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Plus,
@@ -13,6 +13,8 @@ import {
   Pencil,
   Search,
   FileText,
+  Brain,
+  Copy,
 } from 'lucide-react';
 import { useStudyStore } from '../store/studyStore';
 import { AddParticipantModal } from '../components/AddParticipantModal';
@@ -28,13 +30,15 @@ import {
   getParticipantSessionProgress,
   exportStudyToCSV,
   downloadStudyReport,
+  downloadParticipantsToImportTSV,
 } from '../utils/helpers';
-import type { Participant, ChecklistItem, Study } from '../types';
+import { UndoToast } from '../components/UndoToast';
+import type { Participant, ChecklistItem, Study, MachineType } from '../types';
 
 export function StudyDetail() {
   const { studyId } = useParams<{ studyId: string }>();
   const navigate = useNavigate();
-  const { studies, addParticipant, updateStudy, deleteStudy, deleteParticipant } = useStudyStore();
+  const { studies, addStudy, addParticipant, updateStudy, deleteStudy, deleteParticipant } = useStudyStore();
 
   const [showAddParticipant, setShowAddParticipant] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
@@ -42,7 +46,11 @@ export function StudyDetail() {
   const [showChecklistEditor, setShowChecklistEditor] = useState(false);
   const [checklistInput, setChecklistInput] = useState('');
   const [filter, setFilter] = useState<'all' | 'recruited' | 'upcoming' | 'completed'>('all');
+  const [machineFilter, setMachineFilter] = useState<MachineType | 'all'>('all');
   const [search, setSearch] = useState('');
+  const [confirmDeleteStudy, setConfirmDeleteStudy] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const study = studies.find((s) => s.id === studyId);
 
@@ -72,20 +80,40 @@ export function StudyDetail() {
 
   const handleDeleteParticipant = (p: Participant, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (
-      window.confirm(
-        `Remove participant ${p.subjectId} (${p.nip}) from this study? This will delete all their session data.`
-      )
-    ) {
-      deleteParticipant(study.id, p.id);
+    // Cancel any in-flight deletion and execute it immediately
+    if (toastTimer.current) {
+      clearTimeout(toastTimer.current);
+      toastTimer.current = null;
     }
+    const label = `${p.subjectId} removed.`;
+    setToastMsg(label);
+    toastTimer.current = setTimeout(() => {
+      deleteParticipant(study.id, p.id);
+      setToastMsg(null);
+      toastTimer.current = null;
+    }, 5000);
+  };
+
+  const undoDelete = () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = null;
+    setToastMsg(null);
   };
 
   const handleDeleteStudy = () => {
-    if (window.confirm(`Delete study "${study.name}"? This cannot be undone.`)) {
-      deleteStudy(study.id);
-      navigate('/');
-    }
+    deleteStudy(study.id);
+    navigate('/');
+  };
+
+  const handleDuplicate = () => {
+    const duplicate = {
+      ...study,
+      id: crypto.randomUUID(),
+      name: `${study.name} (copy)`,
+      participants: [],
+    };
+    addStudy(duplicate);
+    navigate(`/studies/${duplicate.id}`);
   };
 
   const addChecklistItem = () => {
@@ -109,12 +137,15 @@ export function StudyDetail() {
   // Filtering and search
   const filtered = study.participants.filter((p) => {
     const matchesStatus = filter === 'all' || p.status === filter;
+    const matchesMachine =
+      machineFilter === 'all' ||
+      p.machineTracks.some((t) => t.machineType === machineFilter);
     const q = search.toLowerCase();
     const matchesSearch =
       !q ||
       p.subjectId.toLowerCase().includes(q) ||
       p.nip.toLowerCase().includes(q);
-    return matchesStatus && matchesSearch;
+    return matchesStatus && matchesMachine && matchesSearch;
   });
 
   const counts = {
@@ -126,26 +157,26 @@ export function StudyDetail() {
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-slate-500 mb-6">
-        <Link to="/" className="hover:text-blue-600 transition-colors">
+      <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-6">
+        <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
           Studies
         </Link>
         <ChevronRight size={14} />
-        <span className="text-slate-900 font-medium truncate max-w-xs">{study.name}</span>
+        <span className="text-slate-900 dark:text-slate-100 font-medium truncate max-w-xs">{study.name}</span>
       </div>
 
       {/* Study header */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 mb-6">
         <div className="flex items-start gap-6">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-slate-900">{study.name}</h1>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{study.name}</h1>
               <StudyStatusBadge status={status} />
             </div>
             {study.description && (
-              <p className="text-slate-500 mb-4 leading-relaxed max-w-2xl">{study.description}</p>
+              <p className="text-slate-500 dark:text-slate-400 mb-4 leading-relaxed max-w-2xl">{study.description}</p>
             )}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500 dark:text-slate-400">
               <div className="flex gap-1.5">
                 {study.machineTypes.map((m) => (
                   <MachineBadge key={m} machine={m} />
@@ -175,9 +206,9 @@ export function StudyDetail() {
 
           {/* Progress block */}
           <div className="text-right shrink-0">
-            <div className="text-4xl font-bold text-slate-900">{completed}</div>
-            <div className="text-sm text-slate-500 mb-2">of {total} participants</div>
-            <div className="w-28 bg-slate-100 rounded-full h-2">
+            <div className="text-4xl font-bold text-slate-900 dark:text-slate-100">{completed}</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400 mb-2">of {total} participants</div>
+            <div className="w-28 bg-slate-100 dark:bg-slate-700 rounded-full h-2">
               <div
                 className="bg-blue-500 h-2 rounded-full transition-all"
                 style={{ width: `${progress}%` }}
@@ -187,54 +218,86 @@ export function StudyDetail() {
         </div>
 
         {/* Action bar */}
-        <div className="flex items-center justify-between mt-5 pt-5 border-t border-slate-100 flex-wrap gap-2">
+        <div className="flex items-center justify-between mt-5 pt-5 border-t border-slate-100 dark:border-slate-700 flex-wrap gap-2">
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setShowEditStudy(true)}
-              className="flex items-center gap-1.5 text-sm text-slate-600 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
             >
               <Pencil size={13} />
               Edit Study
             </button>
             <button
               onClick={() => exportStudyToCSV(study)}
-              className="flex items-center gap-1.5 text-sm text-slate-600 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
             >
               <Download size={13} />
               CSV
             </button>
             <button
               onClick={() => downloadStudyReport(study)}
-              className="flex items-center gap-1.5 text-sm text-slate-600 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
             >
               <FileText size={13} />
               HTML Report
             </button>
+            <button
+              onClick={() => downloadParticipantsToImportTSV(study.participants)}
+              className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+            >
+              <Brain size={13} />
+              TSV Import
+            </button>
+            <button
+              onClick={handleDuplicate}
+              className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+            >
+              <Copy size={13} />
+              Duplicate
+            </button>
           </div>
-          <button
-            onClick={handleDeleteStudy}
-            className="flex items-center gap-1.5 text-sm text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
-          >
-            <Trash2 size={13} />
-            Delete study
-          </button>
+          {confirmDeleteStudy ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-red-600 dark:text-red-400">Delete study permanently?</span>
+              <button
+                onClick={handleDeleteStudy}
+                className="text-xs font-semibold text-red-600 dark:text-red-400 hover:underline"
+              >
+                Yes, delete
+              </button>
+              <button
+                onClick={() => setConfirmDeleteStudy(false)}
+                className="text-xs text-slate-500 dark:text-slate-400 hover:underline"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDeleteStudy(true)}
+              className="flex items-center gap-1.5 text-sm text-red-500 dark:text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            >
+              <Trash2 size={13} />
+              Delete study
+            </button>
+          )}
         </div>
       </div>
 
       {/* Participants table */}
-      <div className="bg-white rounded-xl border border-slate-200 mb-6">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 mb-6">
         {/* Table header */}
         <div className="px-6 py-4 border-b border-slate-100 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-slate-900">
+            <h2 className="font-semibold text-slate-900 dark:text-slate-100">
               Participants
-              <span className="ml-2 text-sm font-normal text-slate-400">
+              <span className="ml-2 text-sm font-normal text-slate-400 dark:text-slate-500">
                 ({study.participants.length} enrolled / {total} expected)
               </span>
             </h2>
             <button
               onClick={() => setShowBulkImport(true)}
-              className="flex items-center gap-1.5 text-sm text-slate-600 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
               title="Import multiple participants from a spreadsheet"
             >
               <Plus size={14} />
@@ -261,7 +324,7 @@ export function StudyDetail() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by subject ID or NIP..."
-                className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             <div className="flex gap-1.5 flex-wrap">
@@ -279,20 +342,49 @@ export function StudyDetail() {
                   className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
                     filter === key
                       ? 'bg-blue-600 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
                   }`}
                 >
                   {label}
                 </button>
               ))}
             </div>
+
+            {/* Machine filter — only shown if study uses more than one machine */}
+            {study.machineTypes.length > 1 && (
+              <div className="flex gap-1.5 flex-wrap border-l border-slate-200 dark:border-slate-700 pl-3">
+                <button
+                  onClick={() => setMachineFilter('all')}
+                  className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
+                    machineFilter === 'all'
+                      ? 'bg-slate-700 dark:bg-slate-200 text-white dark:text-slate-900'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  All machines
+                </button>
+                {study.machineTypes.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setMachineFilter(m)}
+                    className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
+                      machineFilter === m
+                        ? 'bg-slate-700 dark:bg-slate-200 text-white dark:text-slate-900'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Table */}
         {filtered.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
-            <Users size={36} className="mx-auto mb-3 text-slate-200" />
+          <div className="text-center py-12 text-slate-400 dark:text-slate-500">
+            <Users size={36} className="mx-auto mb-3 text-slate-200 dark:text-slate-600" />
             <p className="text-sm">
               {study.participants.length === 0
                 ? 'No participants yet — add the first one above.'
@@ -303,7 +395,7 @@ export function StudyDetail() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="text-xs font-medium text-slate-400 uppercase tracking-wide bg-slate-50">
+                <tr className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide bg-slate-50 dark:bg-slate-800/50">
                   <th className="text-left px-4 py-3">Subject ID</th>
                   <th className="text-left px-4 py-3">NIP</th>
                   <th className="text-left px-4 py-3">Age</th>
@@ -316,31 +408,31 @@ export function StudyDetail() {
                   <th className="text-right px-4 py-3">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
                 {filtered.map((p) => {
                   const { completed: sc, total: st } = getParticipantSessionProgress(p, study);
                   return (
                     <tr
                       key={p.id}
                       onClick={() => navigate(`/studies/${study.id}/participants/${p.id}`)}
-                      className="hover:bg-blue-50/40 cursor-pointer transition-colors"
+                      className="hover:bg-blue-50/40 dark:hover:bg-blue-900/10 cursor-pointer transition-colors"
                     >
-                      <td className="px-4 py-3 font-mono text-sm font-semibold text-slate-900">
+                      <td className="px-4 py-3 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
                         {p.subjectId}
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-600">{p.nip}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
+                      <td className="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-400">{p.nip}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
                         {p.age > 0 ? `${p.age} y` : '—'}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         {p.gender
                           ? <span className={p.gender === 'male' ? 'text-blue-600 font-medium' : 'text-pink-500 font-medium'}>{p.gender === 'male' ? '♂ M' : '♀ F'}</span>
-                          : <span className="text-slate-300">—</span>}
+                          : <span className="text-slate-300 dark:text-slate-600">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
+                      <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
                         {p.handedness
                           ? <span>{p.handedness === 'right' ? '🤜 R' : '🤛 L'}</span>
-                          : <span className="text-slate-300">—</span>}
+                          : <span className="text-slate-300 dark:text-slate-600">—</span>}
                       </td>
                       <td className="px-4 py-3">
                         <ParticipantStatusBadge status={p.status} />
@@ -354,8 +446,8 @@ export function StudyDetail() {
                                 key={field}
                                 className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                                   rec?.acquired
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-slate-100 text-slate-400'
+                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                    : 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500'
                                 }`}
                               >
                                 {field}
@@ -367,7 +459,7 @@ export function StudyDetail() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-slate-600">{sc}/{st}</span>
-                          <div className="w-14 bg-slate-100 rounded-full h-1">
+                          <div className="w-14 bg-slate-100 dark:bg-slate-700 rounded-full h-1">
                             <div
                               className="bg-green-500 h-1 rounded-full"
                               style={{ width: `${st > 0 ? (sc / st) * 100 : 0}%` }}
@@ -375,7 +467,7 @@ export function StudyDetail() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
+                      <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 whitespace-nowrap">
                         {p.acquisitionDate ? formatDate(p.acquisitionDate) : '—'}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -393,7 +485,7 @@ export function StudyDetail() {
                           </button>
                           <button
                             onClick={(e) => handleDeleteParticipant(p, e)}
-                            className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                             title="Remove participant"
                           >
                             <Trash2 size={13} />
@@ -410,15 +502,15 @@ export function StudyDetail() {
       </div>
 
       {/* Preparation checklist editor */}
-      <div className="bg-white rounded-xl border border-slate-200">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
         <button
           onClick={() => setShowChecklistEditor(!showChecklistEditor)}
-          className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors rounded-xl"
+          className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors rounded-xl"
         >
           <div className="flex items-center gap-2">
-            <Settings size={16} className="text-slate-400" />
-            <span className="font-semibold text-slate-900">Preparation Checklist</span>
-            <span className="text-sm text-slate-400">
+            <Settings size={16} className="text-slate-400 dark:text-slate-500" />
+            <span className="font-semibold text-slate-900 dark:text-slate-100">Preparation Checklist</span>
+            <span className="text-sm text-slate-400 dark:text-slate-500">
               ({study.preparationChecklist.length} items)
             </span>
           </div>
@@ -429,8 +521,8 @@ export function StudyDetail() {
         </button>
 
         {showChecklistEditor && (
-          <div className="px-6 pb-6 border-t border-slate-100 pt-4">
-            <p className="text-xs text-slate-400 mb-4">
+          <div className="px-6 pb-6 border-t border-slate-100 dark:border-slate-700 pt-4">
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">
               Items are shown step-by-step during the acquisition preparation phase.
             </p>
             {study.preparationChecklist.length === 0 ? (
@@ -439,8 +531,8 @@ export function StudyDetail() {
               <div className="space-y-1.5 mb-4">
                 {study.preparationChecklist.map((item, idx) => (
                   <div key={item.id} className="flex items-center gap-3 group py-1">
-                    <span className="text-xs text-slate-300 w-5 text-right shrink-0">{idx + 1}</span>
-                    <span className="text-sm text-slate-700 flex-1">{item.label}</span>
+                    <span className="text-xs text-slate-300 dark:text-slate-600 w-5 text-right shrink-0">{idx + 1}</span>
+                    <span className="text-sm text-slate-700 dark:text-slate-300 flex-1">{item.label}</span>
                     <button
                       onClick={() => removeChecklistItem(item.id)}
                       className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -458,11 +550,11 @@ export function StudyDetail() {
                 onChange={(e) => setChecklistInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addChecklistItem())}
                 placeholder="Add checklist item..."
-                className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
                 onClick={addChecklistItem}
-                className="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-slate-200 transition-colors"
+                className="px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
               >
                 Add
               </button>
@@ -490,6 +582,9 @@ export function StudyDetail() {
         study={study}
         onSave={(updates: Partial<Study>) => updateStudy(study.id, updates)}
       />
+      {toastMsg && (
+        <UndoToast message={toastMsg} onUndo={undoDelete} onDismiss={undoDelete} />
+      )}
     </div>
   );
 }

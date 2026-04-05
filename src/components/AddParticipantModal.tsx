@@ -86,7 +86,7 @@ export function AddParticipantModal({
   };
 
   const inputClass =
-    'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
+    'w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
 
   return (
     <Modal open={open} onClose={handleClose} title="Add Participant" size="lg">
@@ -94,7 +94,7 @@ export function AddParticipantModal({
         {/* IDs row */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Subject ID <span className="text-red-500">*</span>
             </label>
             <input
@@ -105,10 +105,10 @@ export function AddParticipantModal({
               required
               className={inputClass}
             />
-            <p className="text-xs text-slate-400 mt-1">Auto-generated, editable</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Auto-generated, editable</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               NIP <span className="text-red-500">*</span>
             </label>
             <input
@@ -126,7 +126,7 @@ export function AddParticipantModal({
         {/* Age + date */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Age</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Age</label>
             <input
               type="number"
               value={age}
@@ -138,7 +138,7 @@ export function AddParticipantModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Acquisition date
             </label>
             <input
@@ -153,7 +153,7 @@ export function AddParticipantModal({
         {/* Gender + Handedness */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Gender</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Gender</label>
             <div className="flex gap-2">
               {(['male', 'female'] as Gender[]).map((g) => (
                 <button
@@ -165,7 +165,7 @@ export function AddParticipantModal({
                       ? g === 'male'
                         ? 'bg-blue-600 text-white border-blue-600'
                         : 'bg-pink-500 text-white border-pink-500'
-                      : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+                      : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
                   }`}
                 >
                   <span className="text-base leading-none">{g === 'male' ? '♂' : '♀'}</span>
@@ -175,7 +175,7 @@ export function AddParticipantModal({
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Handedness</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Handedness</label>
             <div className="flex gap-2">
               {(['right', 'left'] as Handedness[]).map((h) => (
                 <button
@@ -185,7 +185,7 @@ export function AddParticipantModal({
                   className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium border transition-colors ${
                     handedness === h
                       ? 'bg-slate-700 text-white border-slate-700'
-                      : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+                      : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
                   }`}
                 >
                   <span className="text-base leading-none">{h === 'right' ? '🤜' : '🤛'}</span>
@@ -197,18 +197,18 @@ export function AddParticipantModal({
         </div>
 
         {/* Anatomical MRI */}
-        <div className="bg-blue-50 rounded-lg p-4 space-y-3">
-          <p className="text-sm font-medium text-slate-700">Anatomical MRI</p>
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 space-y-3">
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Anatomical MRI</p>
           {/* 3T */}
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm text-slate-600 w-6 shrink-0">3T</span>
+            <span className="text-sm text-slate-600 dark:text-slate-400 w-6 shrink-0">3T</span>
             <button
               type="button"
               onClick={() => setAnat3TAcquired(!anat3TAcquired)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                 anat3TAcquired
                   ? 'bg-green-600 text-white border-green-600'
-                  : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+                  : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
               }`}
             >
               {anat3TAcquired ? '✓ Acquired' : '○ Not acquired'}
@@ -219,20 +219,20 @@ export function AddParticipantModal({
                 value={anat3TDate}
                 onChange={(e) => setAnat3TDate(e.target.value)}
                 placeholder="Date"
-                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             )}
           </div>
           {/* 7T */}
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm text-slate-600 w-6 shrink-0">7T</span>
+            <span className="text-sm text-slate-600 dark:text-slate-400 w-6 shrink-0">7T</span>
             <button
               type="button"
               onClick={() => setAnat7TAcquired(!anat7TAcquired)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                 anat7TAcquired
                   ? 'bg-green-600 text-white border-green-600'
-                  : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+                  : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
               }`}
             >
               {anat7TAcquired ? '✓ Acquired' : '○ Not acquired'}
@@ -243,7 +243,7 @@ export function AddParticipantModal({
                 value={anat7TDate}
                 onChange={(e) => setAnat7TDate(e.target.value)}
                 placeholder="Date"
-                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             )}
           </div>
@@ -255,7 +255,7 @@ export function AddParticipantModal({
           <button
             type="button"
             onClick={handleClose}
-            className="px-4 py-2 text-sm text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+            className="px-4 py-2 text-sm text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
           >
             Cancel
           </button>

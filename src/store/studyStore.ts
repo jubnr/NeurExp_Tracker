@@ -271,16 +271,15 @@ export const useStudyStore = create<StudyState>()(
                           ...p,
                           machineTracks: updateTrack(p.machineTracks, machineType, (t) => ({
                             ...t,
-                            sessions: t.sessions.map((ses) =>
-                              ses.id !== sessionId
-                                ? ses
-                                : {
-                                    ...ses,
-                                    runs: ses.runs.map((r) =>
-                                      r.id === runId ? { ...r, ...updates } : r
-                                    ),
-                                  }
-                            ),
+                            sessions: t.sessions.map((ses) => {
+                              if (ses.id !== sessionId) return ses;
+                              const updatedRuns = ses.runs.map((r) =>
+                                r.id === runId ? { ...r, ...updates } : r
+                              );
+                              const allDone =
+                                updatedRuns.length > 0 && updatedRuns.every((r) => r.completed);
+                              return { ...ses, runs: updatedRuns, completed: allDone };
+                            }),
                           })),
                         }
                   ),
@@ -302,9 +301,13 @@ export const useStudyStore = create<StudyState>()(
                           ...p,
                           machineTracks: updateTrack(p.machineTracks, machineType, (t) => ({
                             ...t,
-                            sessions: t.sessions.map((ses) =>
-                              ses.id !== sessionId ? ses : { ...ses, runs: [...ses.runs, run] }
-                            ),
+                            sessions: t.sessions.map((ses) => {
+                              if (ses.id !== sessionId) return ses;
+                              const updatedRuns = [...ses.runs, run];
+                              const allDone =
+                                updatedRuns.length > 0 && updatedRuns.every((r) => r.completed);
+                              return { ...ses, runs: updatedRuns, completed: allDone };
+                            }),
                           })),
                         }
                   ),

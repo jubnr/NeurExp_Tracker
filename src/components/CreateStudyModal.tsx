@@ -61,14 +61,14 @@ export function CreateStudyModal({ open, onClose, onSubmit }: CreateStudyModalPr
   };
 
   const inputClass =
-    'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
+    'w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
 
   return (
     <Modal open={open} onClose={onClose} title="Create New Study" size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Study Name */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
             Study name <span className="text-red-500">*</span>
           </label>
           <input
@@ -83,7 +83,7 @@ export function CreateStudyModal({ open, onClose, onSubmit }: CreateStudyModalPr
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -95,7 +95,7 @@ export function CreateStudyModal({ open, onClose, onSubmit }: CreateStudyModalPr
 
         {/* Machine Types */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
             Machine type(s) <span className="text-red-500">*</span>
           </label>
           <div className="flex gap-2">
@@ -107,7 +107,7 @@ export function CreateStudyModal({ open, onClose, onSubmit }: CreateStudyModalPr
                 className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                   machineTypes.includes(m)
                     ? MACHINE_ACTIVE_CLASS[m]
-                    : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400'
+                    : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
                 }`}
               >
                 {m}
@@ -115,14 +115,14 @@ export function CreateStudyModal({ open, onClose, onSubmit }: CreateStudyModalPr
             ))}
           </div>
           {machineTypes.length === 0 && (
-            <p className="text-xs text-slate-400 mt-1">Select at least one machine type</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Select at least one machine type</p>
           )}
         </div>
 
         {/* Numeric fields */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Expected participants
             </label>
             <input
@@ -134,7 +134,7 @@ export function CreateStudyModal({ open, onClose, onSubmit }: CreateStudyModalPr
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Sessions per participant
             </label>
             <input
@@ -146,7 +146,7 @@ export function CreateStudyModal({ open, onClose, onSubmit }: CreateStudyModalPr
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Runs per session
             </label>
             <input
@@ -158,7 +158,7 @@ export function CreateStudyModal({ open, onClose, onSubmit }: CreateStudyModalPr
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Resting-state acquisition
             </label>
             <div className="flex gap-2 mt-0.5">
@@ -170,7 +170,7 @@ export function CreateStudyModal({ open, onClose, onSubmit }: CreateStudyModalPr
                   className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
                     hasRestingState === (opt === 'Yes')
                       ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400'
+                      : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
                   }`}
                 >
                   {opt}
@@ -182,7 +182,7 @@ export function CreateStudyModal({ open, onClose, onSubmit }: CreateStudyModalPr
 
         {/* Info about auto-checklist */}
         {machineTypes.length > 0 && (
-          <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
+          <p className="text-xs text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-2">
             A preparation checklist will be auto-generated based on your selected machines. You can
             edit it after creation.
           </p>
@@ -193,7 +193,7 @@ export function CreateStudyModal({ open, onClose, onSubmit }: CreateStudyModalPr
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
           >
             Cancel
           </button>

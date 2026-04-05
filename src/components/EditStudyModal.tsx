@@ -43,13 +43,13 @@ export function EditStudyModal({ open, onClose, study, onSave }: EditStudyModalP
   };
 
   const inputClass =
-    'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
+    'w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
 
   return (
     <Modal open={open} onClose={onClose} title="Edit Study" size="lg">
       <form onSubmit={handleSave} className="space-y-5">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
             Study name <span className="text-red-500">*</span>
           </label>
           <input
@@ -62,7 +62,7 @@ export function EditStudyModal({ open, onClose, study, onSave }: EditStudyModalP
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -73,7 +73,7 @@ export function EditStudyModal({ open, onClose, study, onSave }: EditStudyModalP
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Expected participants
             </label>
             <input
@@ -91,7 +91,7 @@ export function EditStudyModal({ open, onClose, study, onSave }: EditStudyModalP
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Sessions per participant
             </label>
             <input
@@ -101,10 +101,16 @@ export function EditStudyModal({ open, onClose, study, onSave }: EditStudyModalP
               min={1}
               className={inputClass}
             />
+            {sessionsPerParticipant !== study.sessionsPerParticipant &&
+              study.participants.some((p) => p.machineTracks.some((t) => t.sessions.length > 0)) && (
+              <p className="text-xs text-amber-600 mt-1">
+                Warning: existing sessions won't be affected — only progress counters will change.
+              </p>
+            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Runs per session
             </label>
             <input
@@ -114,10 +120,18 @@ export function EditStudyModal({ open, onClose, study, onSave }: EditStudyModalP
               min={1}
               className={inputClass}
             />
+            {runsPerSession !== study.runsPerSession &&
+              study.participants.some((p) =>
+                p.machineTracks.some((t) => t.sessions.some((s) => s.runs.length > 0))
+              ) && (
+              <p className="text-xs text-amber-600 mt-1">
+                Warning: existing runs won't be deleted — only the expected count will change.
+              </p>
+            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Resting-state
             </label>
             <div className="flex gap-2 mt-0.5">
@@ -129,7 +143,7 @@ export function EditStudyModal({ open, onClose, study, onSave }: EditStudyModalP
                   className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
                     hasRestingState === (opt === 'Yes')
                       ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400'
+                      : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
                   }`}
                 >
                   {opt}
@@ -143,7 +157,7 @@ export function EditStudyModal({ open, onClose, study, onSave }: EditStudyModalP
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+            className="px-4 py-2 text-sm text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
           >
             Cancel
           </button>

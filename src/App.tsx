@@ -4,11 +4,13 @@ import { Dashboard } from './pages/Dashboard';
 import { StudyDetail } from './pages/StudyDetail';
 import { ParticipantDetail } from './pages/ParticipantDetail';
 import { AcquisitionFlow } from './pages/AcquisitionFlow';
+import { useDarkMode } from './hooks/useDarkMode';
 
 export default function App() {
+  useDarkMode(); // initialises dark class on <html> from localStorage / OS preference
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
         <Navbar />
         <main>
           <Routes>

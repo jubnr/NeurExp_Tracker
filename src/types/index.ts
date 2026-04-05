@@ -1,5 +1,5 @@
 export type MachineType = 'MEG' | '3T MRI' | '7T MRI';
-export type StudyStatus = 'to_be_scheduled' | 'recruiting' | 'completed';
+export type StudyStatus = 'to_be_scheduled' | 'recruiting' | 'active' | 'completed';
 export type ParticipantStatus = 'recruited' | 'upcoming' | 'completed';
 
 // ─── Run (leaf-level data) ───────────────────────────────────────────────────
