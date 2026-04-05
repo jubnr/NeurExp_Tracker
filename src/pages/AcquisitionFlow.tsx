@@ -287,10 +287,17 @@ export function AcquisitionFlow() {
           >
             {checklist.map((item) => (
               <Step key={item.id}>
-                <div className="flex flex-col items-center text-center py-6 gap-4">
+                <div className="flex flex-col items-center text-center py-6 gap-6">
                   <p className="text-xl font-semibold text-slate-800 dark:text-slate-100 leading-snug max-w-sm">
                     {item.label}
                   </p>
+                  {item.image && (
+                    <img
+                      src={item.image}
+                      alt=""
+                      className="max-h-64 max-w-full rounded-xl object-contain border border-slate-200 dark:border-slate-700 shadow-sm"
+                    />
+                  )}
                 </div>
               </Step>
             ))}

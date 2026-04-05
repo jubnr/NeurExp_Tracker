@@ -68,6 +68,7 @@ export interface Participant {
 export interface ChecklistItem {
   id: string;
   label: string;
+  image?: string; // base64 data URL
 }
 
 export interface Study {

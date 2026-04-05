@@ -15,6 +15,8 @@ import {
   FileText,
   Brain,
   Copy,
+  ImagePlus,
+  X,
 } from 'lucide-react';
 import { useStudyStore } from '../store/studyStore';
 import { AddParticipantModal } from '../components/AddParticipantModal';
@@ -132,6 +134,23 @@ export function StudyDetail() {
     updateStudy(study.id, {
       preparationChecklist: study.preparationChecklist.filter((i) => i.id !== itemId),
     });
+  };
+
+  const setChecklistItemImage = (itemId: string, image: string | undefined) => {
+    updateStudy(study.id, {
+      preparationChecklist: study.preparationChecklist.map((i) =>
+        i.id === itemId ? { ...i, image } : i
+      ),
+    });
+  };
+
+  const handleChecklistImageUpload = (itemId: string, file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result;
+      if (typeof result === 'string') setChecklistItemImage(itemId, result);
+    };
+    reader.readAsDataURL(file);
   };
 
   // Filtering and search
@@ -528,17 +547,48 @@ export function StudyDetail() {
             {study.preparationChecklist.length === 0 ? (
               <p className="text-sm text-slate-400 mb-4">No checklist items yet.</p>
             ) : (
-              <div className="space-y-1.5 mb-4">
+              <div className="space-y-2 mb-4">
                 {study.preparationChecklist.map((item, idx) => (
-                  <div key={item.id} className="flex items-center gap-3 group py-1">
-                    <span className="text-xs text-slate-300 dark:text-slate-600 w-5 text-right shrink-0">{idx + 1}</span>
-                    <span className="text-sm text-slate-700 dark:text-slate-300 flex-1">{item.label}</span>
-                    <button
-                      onClick={() => removeChecklistItem(item.id)}
-                      className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      Remove
-                    </button>
+                  <div key={item.id} className="group border border-slate-100 dark:border-slate-700 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-slate-300 dark:text-slate-600 w-5 text-right shrink-0">{idx + 1}</span>
+                      <span className="text-sm text-slate-700 dark:text-slate-300 flex-1">{item.label}</span>
+                      {/* Image upload */}
+                      <label
+                        className="cursor-pointer p-1 rounded text-slate-300 dark:text-slate-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                        title="Attach image"
+                      >
+                        <ImagePlus size={14} />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleChecklistImageUpload(item.id, file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                      <button
+                        onClick={() => removeChecklistItem(item.id)}
+                        className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    {item.image && (
+                      <div className="mt-2 ml-8 relative inline-block">
+                        <img src={item.image} alt="" className="h-20 rounded object-contain border border-slate-200 dark:border-slate-600" />
+                        <button
+                          onClick={() => setChecklistItemImage(item.id, undefined)}
+                          className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 transition-colors"
+                          title="Remove image"
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
