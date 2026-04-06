@@ -1,9 +1,12 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { idbStorage } from '../utils/studyDB';
 import type { Study, Participant, MachineSession, MachineTrack, MachineType, Run } from '../types';
 
 interface StudyState {
   studies: Study[];
+  pendingDeleteStudyId: string | null;
+  setPendingDeleteStudy: (id: string | null) => void;
   // Study CRUD
   addStudy: (study: Study) => void;
   updateStudy: (studyId: string, updates: Partial<Study>) => void;
@@ -59,7 +62,7 @@ function migrateParticipant(p: any, idx: number): Participant {
         notes: '',
         runs: (acq.runs ?? []).map((r: any) => ({
           ...r,
-          participantState: r.participantState ?? '😐 Neutral',
+          participantState: r.participantState ?? '🙂 Good',
         })),
         completed: oldSess.completed ?? false,
       };
@@ -87,7 +90,7 @@ function migrateTrack(t: any): MachineTrack {
       notes: s.notes ?? '',
       runs: (s.runs ?? []).map((r: any) => ({
         ...r,
-        participantState: r.participantState ?? '😐 Neutral',
+        participantState: r.participantState ?? '🙂 Good',
       })),
     })),
   };
@@ -115,10 +118,14 @@ function updateTrack(
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
+
 export const useStudyStore = create<StudyState>()(
   persist(
     (set) => ({
       studies: [],
+      pendingDeleteStudyId: null,
+
+      setPendingDeleteStudy: (id) => set({ pendingDeleteStudyId: id }),
 
       // ── Study ────────────────────────────────────────────────────────────────
 
@@ -343,6 +350,8 @@ export const useStudyStore = create<StudyState>()(
     }),
     {
       name: 'neurexp-storage',
+      storage: createJSONStorage(() => idbStorage),
+      partialize: (state) => ({ studies: state.studies }),
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.studies = migrateStudies(state.studies);

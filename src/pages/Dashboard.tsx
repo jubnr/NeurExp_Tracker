@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FlaskConical, Search } from 'lucide-react';
 import { useStudyStore } from '../store/studyStore';
@@ -6,6 +6,7 @@ import { CreateStudyModal } from '../components/CreateStudyModal';
 import { StudyStatusBadge } from '../components/StatusBadge';
 import { MachineBadge } from '../components/MachineBadge';
 import { BorderGlow } from '../components/BorderGlow';
+import { UndoToast } from '../components/UndoToast';
 import { getStudyStatus, getStudyProgress } from '../utils/helpers';
 import { useDarkMode } from '../hooks/useDarkMode';
 import type { Study, MachineType } from '../types';
@@ -14,9 +15,30 @@ export function Dashboard() {
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState('');
   const [machineFilter, setMachineFilter] = useState<MachineType | 'all'>('all');
-  const { studies, addStudy } = useStudyStore();
+  const { studies, addStudy, deleteStudy, pendingDeleteStudyId, setPendingDeleteStudy } = useStudyStore();
   const navigate = useNavigate();
   const { isDark } = useDarkMode();
+  const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // When a study is pending deletion, start the 5s countdown
+  useEffect(() => {
+    if (!pendingDeleteStudyId) return;
+    if (deleteTimer.current) clearTimeout(deleteTimer.current);
+    deleteTimer.current = setTimeout(() => {
+      deleteStudy(pendingDeleteStudyId);
+      setPendingDeleteStudy(null);
+      deleteTimer.current = null;
+    }, 5000);
+    return () => {
+      if (deleteTimer.current) clearTimeout(deleteTimer.current);
+    };
+  }, [pendingDeleteStudyId]);
+
+  const undoDeleteStudy = () => {
+    if (deleteTimer.current) clearTimeout(deleteTimer.current);
+    deleteTimer.current = null;
+    setPendingDeleteStudy(null);
+  };
 
   const handleCreate = (study: Study) => {
     addStudy(study);
@@ -24,10 +46,15 @@ export function Dashboard() {
     navigate(`/studies/${study.id}`);
   };
 
-  // Collect all machine types used across studies
+  // Collect all machine types used across studies (excluding pending delete)
+  const visibleStudies = studies.filter((s) => s.id !== pendingDeleteStudyId);
   const allMachineTypes = Array.from(
-    new Set(studies.flatMap((s) => s.machineTypes))
+    new Set(visibleStudies.flatMap((s) => s.machineTypes))
   ) as MachineType[];
+
+  const pendingStudyName = pendingDeleteStudyId
+    ? studies.find((s) => s.id === pendingDeleteStudyId)?.name
+    : null;
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
@@ -36,9 +63,9 @@ export function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Studies</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {studies.length === 0
+            {visibleStudies.length === 0
               ? 'No studies yet'
-              : `${studies.length} ${studies.length === 1 ? 'study' : 'studies'}`}
+              : `${visibleStudies.length} ${visibleStudies.length === 1 ? 'study' : 'studies'}`}
           </p>
         </div>
         <button
@@ -51,7 +78,7 @@ export function Dashboard() {
       </div>
 
       {/* Search + machine filter */}
-      {studies.length > 0 && (
+      {visibleStudies.length > 0 && (
         <div className="flex items-center gap-3 mb-6 flex-wrap">
           <div className="relative flex-1 min-w-48">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -94,7 +121,7 @@ export function Dashboard() {
       )}
 
       {/* Empty state / grid */}
-      {studies.length === 0 ? (
+      {visibleStudies.length === 0 ? (
         <div className="text-center py-24 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
           <FlaskConical size={44} className="mx-auto text-slate-300 mb-4" />
           <h3 className="text-lg font-medium text-slate-600 mb-2">No studies yet</h3>
@@ -112,7 +139,7 @@ export function Dashboard() {
       ) : (
         /* Study grid */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {studies
+          {visibleStudies
             .filter((s) => {
               const matchesSearch =
                 search.trim() === '' ||
@@ -125,7 +152,7 @@ export function Dashboard() {
             .map((study) => {
             const status = getStudyStatus(study);
             const { completed, total } = getStudyProgress(study);
-            const progress = total > 0 ? (completed / total) * 100 : 0;
+            const progress = total > 0 ? Math.min((completed / total) * 100, 100) : 0;
 
             return (
               <BorderGlow
@@ -199,6 +226,14 @@ export function Dashboard() {
       )}
 
       <CreateStudyModal open={showModal} onClose={() => setShowModal(false)} onSubmit={handleCreate} />
+
+      {pendingStudyName && (
+        <UndoToast
+          message={`"${pendingStudyName}" deleted.`}
+          onUndo={undoDeleteStudy}
+          onDismiss={undoDeleteStudy}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   CheckCircle2,
@@ -6,12 +6,14 @@ import {
   ChevronLeft,
   Brain,
   ClipboardList,
+  X,
 } from 'lucide-react';
 import { useStudyStore } from '../store/studyStore';
 import { MachineBadge } from '../components/MachineBadge';
-import { Stepper, Step } from '../components/Stepper';
+import { Stepper, Step, type StepperHandle } from '../components/Stepper';
 import type { MachineSession, Run, MachineType } from '../types';
 import { getMachineTrackProgress } from '../utils/helpers';
+import { loadImage } from '../utils/imageDB';
 
 type WizardStep = 'machine' | 'checklist' | 'session-notes' | 'runs' | 'meg-wrap-up' | 'complete';
 
@@ -23,6 +25,7 @@ const MEG_WRAP_UP = [
 
 const PARTICIPANT_STATES = [
   { emoji: '😀', label: 'Alert' },
+  { emoji: '🙂', label: 'Good' },
   { emoji: '😐', label: 'Neutral' },
   { emoji: '😴', label: 'Drowsy' },
   { emoji: '😵', label: 'Struggling' },
@@ -73,6 +76,41 @@ export function AcquisitionFlow() {
   // MEG wrap-up checklist
   const [wrapUpChecked, setWrapUpChecked] = useState<Record<number, boolean>>({});
 
+  // Lightbox for checklist images
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
+  // Images loaded from IndexedDB keyed by checklist item id
+  const [checklistImages, setChecklistImages] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const items = study?.preparationChecklist ?? [];
+    const itemsWithImages = items.filter((i) => i.image);
+    if (!itemsWithImages.length) return;
+    Promise.all(
+      itemsWithImages.map(async (i) => ({ id: i.id, src: await loadImage(i.image!) }))
+    ).then((results) => {
+      const map: Record<string, string> = {};
+      results.forEach(({ id, src }) => { if (src) map[id] = src; });
+      setChecklistImages(map);
+    });
+  }, [study?.preparationChecklist]);
+
+  // Stepper ref for keyboard shortcut
+  const stepperRef = useRef<StepperHandle>(null);
+
+  useEffect(() => {
+    if (step !== 'checklist') return;
+    const handler = (e: KeyboardEvent) => {
+      if (lightboxSrc) return; // don't advance while lightbox is open
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        stepperRef.current?.advance();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [step, lightboxSrc]);
+
   if (!study || !participant) {
     return (
       <div className="max-w-2xl mx-auto px-6 py-12 text-center">
@@ -84,7 +122,9 @@ export function AcquisitionFlow() {
     );
   }
 
-  const checklist = study.preparationChecklist;
+  const checklist = study.machineTypes.length > 1
+    ? study.preparationChecklist.filter((item) => item.machineType === selectedMachine)
+    : study.preparationChecklist;
 
   // Session number for the selected machine (how many sessions already + 1)
   const nextSessionNum = selectedMachine
@@ -102,7 +142,7 @@ export function AcquisitionFlow() {
       id: crypto.randomUUID(),
       runNumber: i + 1,
       isRestingState: runRestingState[String(i + 1)] ?? false,
-      participantState: runState[String(i + 1)] ?? '😐 Neutral',
+      participantState: runState[String(i + 1)] ?? '🙂 Good',
       notes: runNotes[String(i + 1)] ?? '',
       completed: true,
       completedAt: new Date().toISOString(),
@@ -281,6 +321,7 @@ export function AcquisitionFlow() {
         {/* Stepper card */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm px-8 py-8">
           <Stepper
+            ref={stepperRef}
             onComplete={() => setStep('session-notes')}
             nextButtonText="Done"
             finalButtonText="Complete"
@@ -291,12 +332,30 @@ export function AcquisitionFlow() {
                   <p className="text-xl font-semibold text-slate-800 dark:text-slate-100 leading-snug max-w-sm">
                     {item.label}
                   </p>
-                  {item.image && (
-                    <img
-                      src={item.image}
-                      alt=""
-                      className="max-h-64 max-w-full rounded-xl object-contain border border-slate-200 dark:border-slate-700 shadow-sm"
-                    />
+                  {checklistImages[item.id] && (
+                    <button
+                      type="button"
+                      onClick={() => setLightboxSrc(checklistImages[item.id])}
+                      className="focus:outline-none group relative w-full max-w-sm"
+                      title="Click to expand"
+                    >
+                      <div className="relative overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-700/50 shadow-md">
+                        <img
+                          src={checklistImages[item.id]}
+                          alt=""
+                          className="w-full max-h-72 object-contain transition-transform duration-300 group-hover:scale-[1.03]"
+                        />
+                        {/* Expand hint overlay */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200 rounded-2xl flex items-end justify-end p-3">
+                          <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 text-white text-xs px-2 py-1 rounded-lg backdrop-blur-sm flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                            </svg>
+                            Expand
+                          </span>
+                        </div>
+                      </div>
+                    </button>
                   )}
                 </div>
               </Step>
@@ -305,14 +364,38 @@ export function AcquisitionFlow() {
         </div>
 
         {/* Skip link */}
-        <div className="mt-4 flex justify-start">
+        <div className="mt-4 flex items-center justify-between">
           <button
             onClick={() => setStep('session-notes')}
             className="text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2"
           >
             Skip all
           </button>
+          <span className="text-xs text-slate-300 dark:text-slate-600">
+            Press <kbd className="font-mono bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded">Space</kbd> or <kbd className="font-mono bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded">Enter</kbd> to advance
+          </span>
         </div>
+
+        {/* Lightbox */}
+        {lightboxSrc && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            onClick={() => setLightboxSrc(null)}
+          >
+            <button
+              className="absolute top-4 right-4 text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
+              onClick={() => setLightboxSrc(null)}
+            >
+              <X size={24} />
+            </button>
+            <img
+              src={lightboxSrc}
+              alt=""
+              className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
       </div>
     );
   }
@@ -428,7 +511,7 @@ export function AcquisitionFlow() {
   // ─── STEP: RUNS ───────────────────────────────────────────────────────────
   if (step === 'runs') {
     const key = String(runNum);
-    const selectedState = runState[key] ?? '😐 Neutral';
+    const selectedState = runState[key] ?? '🙂 Good';
 
     return (
       <div className="max-w-2xl mx-auto px-6 py-8 text-slate-900 dark:text-slate-100">

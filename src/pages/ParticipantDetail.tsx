@@ -11,22 +11,25 @@ import {
   Pencil,
   Trash2,
   FileText,
+  FileDown,
   Save,
   X,
   Plus,
   StickyNote,
   Brain,
+  Loader2,
 } from 'lucide-react';
 import { useStudyStore } from '../store/studyStore';
 import { ParticipantStatusBadge } from '../components/StatusBadge';
 import { MachineBadge } from '../components/MachineBadge';
 import { Modal } from '../components/Modal';
-import { formatDate, downloadParticipantReport, downloadParticipantsToImportTSV } from '../utils/helpers';
+import { formatDate, downloadParticipantReport, downloadParticipantReportPdf, downloadParticipantsToImportTSV } from '../utils/helpers';
 import { UndoToast } from '../components/UndoToast';
 import type { MachineType, ParticipantStatus, Gender, Handedness } from '../types';
 
 const PARTICIPANT_STATES = [
   { emoji: '😀', label: 'Alert' },
+  { emoji: '🙂', label: 'Good' },
   { emoji: '😐', label: 'Neutral' },
   { emoji: '😴', label: 'Drowsy' },
   { emoji: '😵', label: 'Struggling' },
@@ -52,6 +55,7 @@ export function ParticipantDetail() {
 
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [editAge, setEditAge] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editStatus, setEditStatus] = useState<ParticipantStatus>('recruited');
@@ -177,7 +181,7 @@ export function ParticipantDetail() {
       id: crypto.randomUUID(),
       runNumber: currentRunCount + 1,
       isRestingState: false,
-      participantState: '😐 Neutral',
+      participantState: '🙂 Good',
       notes: '',
       completed: true,
     };
@@ -208,7 +212,7 @@ export function ParticipantDetail() {
   ) => {
     setEditingRun({ machineType, sessionId, runId });
     setEditNotes(notes);
-    setEditState(state || '😐 Neutral');
+    setEditState(state || '🙂 Good');
     setEditCompleted(completed);
   };
 
@@ -301,7 +305,15 @@ export function ParticipantDetail() {
               className="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
             >
               <FileText size={13} />
-              Report
+              HTML Report
+            </button>
+            <button
+              onClick={async () => { setPdfLoading(true); try { await downloadParticipantReportPdf(study, participant); } finally { setPdfLoading(false); } }}
+              disabled={pdfLoading}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors disabled:opacity-50"
+            >
+              {pdfLoading ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
+              PDF Report
             </button>
             <button
               onClick={() => downloadParticipantsToImportTSV([participant])}
@@ -600,7 +612,7 @@ export function ParticipantDetail() {
                                         editingRun?.runId === run.id &&
                                         editingRun?.sessionId === session.id &&
                                         editingRun?.machineType === machineType;
-                                      const stateParts = (run.participantState || '😐 Neutral').split(' ');
+                                      const stateParts = (run.participantState || '🙂 Good').split(' ');
                                       const stateEmoji = stateParts[0];
                                       const stateLabel = stateParts.slice(1).join(' ');
 
@@ -718,9 +730,11 @@ export function ParticipantDetail() {
                                               )}
 
                                               {/* Notes preview */}
-                                              <span className="flex-1 text-xs text-slate-400 dark:text-slate-500 truncate">
-                                                {run.notes || <span className="italic">No notes</span>}
-                                              </span>
+                                              {run.notes && (
+                                                <span className="flex-1 text-xs text-slate-400 dark:text-slate-500 truncate">
+                                                  {run.notes}
+                                                </span>
+                                              )}
 
                                               {/* Actions — visible on hover */}
                                               <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">

@@ -7,7 +7,8 @@ import { AcquisitionFlow } from './pages/AcquisitionFlow';
 import { useDarkMode } from './hooks/useDarkMode';
 
 export default function App() {
-  useDarkMode(); // initialises dark class on <html> from localStorage / OS preference
+  useDarkMode();
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900">

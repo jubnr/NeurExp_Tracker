@@ -44,7 +44,7 @@ When starting a session for a participant, a step-by-step wizard guides you thro
 2. **Preparation checklist:** go through each item one at a time; each step must be explicitly confirmed before moving to the next
 3. **Session notes:** optional free-text field to capture overall session quality, setup issues, or anything that affects the whole session
 4. **Runs:** for each run, record:
-   - Participant state: 😀 Alert · 😐 Neutral · 😴 Drowsy · 😵 Struggling · 😰 Anxious · 🏃 Moved excessively
+   - Participant state: 😀 Alert · 🙂 Good · 😐 Neutral · 😴 Drowsy · 😵 Struggling · 😰 Anxious · 🏃 Moved excessively
    - Whether it is a resting-state run (if applicable)
    - Optional per-run notes
 5. **MEG wrap-up:** *(MEG sessions only)* a mandatory end-of-session checklist:
@@ -74,7 +74,7 @@ From the participant detail page you can also:
 
 ### 💾 Data persistence & backup
 
-All data is stored locally in your browser's **localStorage**. Nothing is sent to any server.
+All data is stored locally in your browser's **IndexedDB**. Nothing is sent to any server.
 
 > ⚠️ **Clearing your browser data will permanently erase everything. Export a backup regularly.** ⚠️
 
@@ -92,7 +92,7 @@ Two buttons in the top navbar handle full data portability:
 2. On the destination computer, open the app and click **Import backup**.
 3. Select the `.json` file — all studies, participants, sessions, runs, notes, and settings are restored exactly.
 
-The backup file is a plain JSON snapshot of the Zustand store (`neurexp-storage`). It is self-contained and human-readable. Any browser on any machine can import it — no account or network required.
+The backup file is a plain JSON snapshot of all app data, including checklist images. It is self-contained and human-readable. Any browser on any machine can import it — no account or network required.
 
 ---
 
@@ -102,7 +102,7 @@ The app is hosted and ready to use. No installation required:
 
 **[https://neurexptracker.netlify.app](https://neurexptracker.netlify.app)**
 
-Works in any modern browser on any OS. All data stays in your browser's localStorage — nothing is sent to a server.
+Works in any modern browser on any OS. All data stays in your browser — nothing is sent to a server.
 
 ---
 
@@ -159,6 +159,6 @@ The output will be in the `dist/` folder — ready to be served by any static fi
 | Framework | React 18 + TypeScript |
 | Bundler | Vite |
 | Styling | Tailwind CSS |
-| State / persistence | Zustand + localStorage |
+| State / persistence | Zustand + IndexedDB |
 | Routing | React Router v6 |
 | Icons | Lucide React |

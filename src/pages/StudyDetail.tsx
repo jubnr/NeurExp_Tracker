@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { saveImage, deleteImage, loadImage } from '../utils/imageDB';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Plus,
@@ -16,6 +17,7 @@ import {
   Brain,
   Copy,
   ImagePlus,
+  GripVertical,
   X,
 } from 'lucide-react';
 import { useStudyStore } from '../store/studyStore';
@@ -37,16 +39,36 @@ import {
 import { UndoToast } from '../components/UndoToast';
 import type { Participant, ChecklistItem, Study, MachineType } from '../types';
 
+function ChecklistImageThumb({ imageKey, onRemove }: { imageKey: string; onRemove: () => void }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => { loadImage(imageKey).then(setSrc); }, [imageKey]);
+  if (!src) return null;
+  return (
+    <div className="mt-2 ml-8 relative inline-block">
+      <img src={src} alt="" className="h-20 rounded object-contain border border-slate-200 dark:border-slate-600" />
+      <button
+        onClick={onRemove}
+        className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 transition-colors"
+        title="Remove image"
+      >
+        <X size={10} />
+      </button>
+    </div>
+  );
+}
+
 export function StudyDetail() {
   const { studyId } = useParams<{ studyId: string }>();
   const navigate = useNavigate();
-  const { studies, addStudy, addParticipant, updateStudy, deleteStudy, deleteParticipant } = useStudyStore();
+  const { studies, addStudy, addParticipant, updateStudy, deleteStudy, deleteParticipant, setPendingDeleteStudy } = useStudyStore();
 
   const [showAddParticipant, setShowAddParticipant] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [showEditStudy, setShowEditStudy] = useState(false);
   const [showChecklistEditor, setShowChecklistEditor] = useState(false);
-  const [checklistInput, setChecklistInput] = useState('');
+  const [checklistInputs, setChecklistInputs] = useState<Record<string, string>>({});
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'recruited' | 'upcoming' | 'completed'>('all');
   const [machineFilter, setMachineFilter] = useState<MachineType | 'all'>('all');
   const [search, setSearch] = useState('');
@@ -103,7 +125,7 @@ export function StudyDetail() {
   };
 
   const handleDeleteStudy = () => {
-    deleteStudy(study.id);
+    setPendingDeleteStudy(study.id);
     navigate('/');
   };
 
@@ -118,16 +140,18 @@ export function StudyDetail() {
     navigate(`/studies/${duplicate.id}`);
   };
 
-  const addChecklistItem = () => {
-    if (!checklistInput.trim()) return;
+  const addChecklistItem = (sectionKey: string) => {
+    const label = (checklistInputs[sectionKey] ?? '').trim();
+    if (!label) return;
     const newItem: ChecklistItem = {
       id: crypto.randomUUID(),
-      label: checklistInput.trim(),
+      label,
+      machineType: (sectionKey !== 'general' && study.machineTypes.length > 1) ? sectionKey as MachineType : undefined,
     };
     updateStudy(study.id, {
       preparationChecklist: [...study.preparationChecklist, newItem],
     });
-    setChecklistInput('');
+    setChecklistInputs((prev) => ({ ...prev, [sectionKey]: '' }));
   };
 
   const removeChecklistItem = (itemId: string) => {
@@ -136,10 +160,22 @@ export function StudyDetail() {
     });
   };
 
-  const setChecklistItemImage = (itemId: string, image: string | undefined) => {
+  const reorderChecklistItem = (draggedId: string, targetId: string) => {
+    if (draggedId === targetId) return;
+    const items = [...study.preparationChecklist];
+    const from = items.findIndex((i) => i.id === draggedId);
+    const to = items.findIndex((i) => i.id === targetId);
+    if (from === -1 || to === -1) return;
+    const [moved] = items.splice(from, 1);
+    items.splice(to, 0, moved);
+    updateStudy(study.id, { preparationChecklist: items });
+  };
+
+
+  const setChecklistItemImage = (itemId: string, imageKey: string | undefined) => {
     updateStudy(study.id, {
       preparationChecklist: study.preparationChecklist.map((i) =>
-        i.id === itemId ? { ...i, image } : i
+        i.id === itemId ? { ...i, image: imageKey } : i
       ),
     });
   };
@@ -147,10 +183,27 @@ export function StudyDetail() {
   const handleChecklistImageUpload = (itemId: string, file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      const result = e.target?.result;
-      if (typeof result === 'string') setChecklistItemImage(itemId, result);
+      const src = e.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 800;
+        const ratio = Math.min(MAX / img.width, MAX / img.height, 1);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        // Store in IndexedDB, keep only the key (item id) in the study state
+        saveImage(itemId, dataUrl).then(() => setChecklistItemImage(itemId, itemId));
+      };
+      img.src = src;
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleRemoveChecklistImage = (itemId: string) => {
+    deleteImage(itemId);
+    setChecklistItemImage(itemId, undefined);
   };
 
   // Filtering and search
@@ -529,9 +582,6 @@ export function StudyDetail() {
           <div className="flex items-center gap-2">
             <Settings size={16} className="text-slate-400 dark:text-slate-500" />
             <span className="font-semibold text-slate-900 dark:text-slate-100">Preparation Checklist</span>
-            <span className="text-sm text-slate-400 dark:text-slate-500">
-              ({study.preparationChecklist.length} items)
-            </span>
           </div>
           <ChevronRight
             size={16}
@@ -544,71 +594,107 @@ export function StudyDetail() {
             <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">
               Items are shown step-by-step during the acquisition preparation phase.
             </p>
-            {study.preparationChecklist.length === 0 ? (
-              <p className="text-sm text-slate-400 mb-4">No checklist items yet.</p>
-            ) : (
-              <div className="space-y-2 mb-4">
-                {study.preparationChecklist.map((item, idx) => (
-                  <div key={item.id} className="group border border-slate-100 dark:border-slate-700 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-slate-300 dark:text-slate-600 w-5 text-right shrink-0">{idx + 1}</span>
-                      <span className="text-sm text-slate-700 dark:text-slate-300 flex-1">{item.label}</span>
-                      {/* Image upload */}
-                      <label
-                        className="cursor-pointer p-1 rounded text-slate-300 dark:text-slate-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                        title="Attach image"
-                      >
-                        <ImagePlus size={14} />
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleChecklistImageUpload(item.id, file);
-                            e.target.value = '';
-                          }}
-                        />
-                      </label>
-                      <button
-                        onClick={() => removeChecklistItem(item.id)}
-                        className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    {item.image && (
-                      <div className="mt-2 ml-8 relative inline-block">
-                        <img src={item.image} alt="" className="h-20 rounded object-contain border border-slate-200 dark:border-slate-600" />
-                        <button
-                          onClick={() => setChecklistItemImage(item.id, undefined)}
-                          className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 transition-colors"
-                          title="Remove image"
-                        >
-                          <X size={10} />
-                        </button>
+
+            {study.machineTypes.length > 1 ? (
+              /* ── Multi-machine: one section per machine ── */
+              <div className="space-y-6">
+                {study.machineTypes.map((mt) => {
+                  const items = study.preparationChecklist.filter((i) => i.machineType === mt);
+                  return (
+                    <div key={mt}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <MachineBadge machine={mt} />
+                        <div className="flex-1 h-px bg-slate-100 dark:bg-slate-700" />
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {items.length > 0 && (
+                        <div className="space-y-2 mb-3">
+                          {items.map((item, idx) => (
+                            <div
+                              key={item.id}
+                              draggable
+                              onDragStart={() => setDraggedItemId(item.id)}
+                              onDragOver={(e) => { e.preventDefault(); setDragOverItemId(item.id); }}
+                              onDragLeave={() => setDragOverItemId(null)}
+                              onDrop={() => { reorderChecklistItem(draggedItemId!, item.id); setDraggedItemId(null); setDragOverItemId(null); }}
+                              onDragEnd={() => { setDraggedItemId(null); setDragOverItemId(null); }}
+                              className={`group border rounded-lg px-3 py-2 transition-colors cursor-default ${dragOverItemId === item.id ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/30'} ${draggedItemId === item.id ? 'opacity-40' : ''}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <GripVertical size={14} className="text-slate-300 dark:text-slate-600 cursor-grab shrink-0" />
+                                <span className="text-xs text-slate-300 dark:text-slate-600 w-5 text-right shrink-0">{idx + 1}</span>
+                                <span className="text-sm text-slate-700 dark:text-slate-300 flex-1">{item.label}</span>
+                                <label className="cursor-pointer p-1 rounded text-slate-300 dark:text-slate-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Attach image">
+                                  <ImagePlus size={14} />
+                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleChecklistImageUpload(item.id, file); e.target.value = ''; }} />
+                                </label>
+                                <button onClick={() => removeChecklistItem(item.id)} className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Remove</button>
+                              </div>
+                              {item.image && <ChecklistImageThumb imageKey={item.image} onRemove={() => handleRemoveChecklistImage(item.id)} />}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={checklistInputs[mt] ?? ''}
+                          onChange={(e) => setChecklistInputs((prev) => ({ ...prev, [mt]: e.target.value }))}
+                          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addChecklistItem(mt))}
+                          placeholder={`Add ${mt} step...`}
+                          className="flex-1 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button onClick={() => addChecklistItem(mt)} className="px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Add</button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            ) : (
+              /* ── Single machine: flat list ── */
+              <>
+                {study.preparationChecklist.length === 0 ? (
+                  <p className="text-sm text-slate-400 mb-4">No checklist items yet.</p>
+                ) : (
+                  <div className="space-y-2 mb-4">
+                    {study.preparationChecklist.map((item, idx) => (
+                      <div
+                        key={item.id}
+                        draggable
+                        onDragStart={() => setDraggedItemId(item.id)}
+                        onDragOver={(e) => { e.preventDefault(); setDragOverItemId(item.id); }}
+                        onDragLeave={() => setDragOverItemId(null)}
+                        onDrop={() => { reorderChecklistItem(draggedItemId!, item.id); setDraggedItemId(null); setDragOverItemId(null); }}
+                        onDragEnd={() => { setDraggedItemId(null); setDragOverItemId(null); }}
+                        className={`group border rounded-lg px-3 py-2 transition-colors cursor-default ${dragOverItemId === item.id ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/30'} ${draggedItemId === item.id ? 'opacity-40' : ''}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <GripVertical size={14} className="text-slate-300 dark:text-slate-600 cursor-grab shrink-0" />
+                          <span className="text-xs text-slate-300 dark:text-slate-600 w-5 text-right shrink-0">{idx + 1}</span>
+                          <span className="text-sm text-slate-700 dark:text-slate-300 flex-1">{item.label}</span>
+                          <label className="cursor-pointer p-1 rounded text-slate-300 dark:text-slate-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Attach image">
+                            <ImagePlus size={14} />
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleChecklistImageUpload(item.id, file); e.target.value = ''; }} />
+                          </label>
+                          <button onClick={() => removeChecklistItem(item.id)} className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Remove</button>
+                        </div>
+                        {item.image && <ChecklistImageThumb imageKey={item.image} onRemove={() => handleRemoveChecklistImage(item.id)} />}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={checklistInputs['general'] ?? ''}
+                    onChange={(e) => setChecklistInputs((prev) => ({ ...prev, general: e.target.value }))}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addChecklistItem('general'))}
+                    placeholder="Add checklist item..."
+                    className="flex-1 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button onClick={() => addChecklistItem('general')} className="px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Add</button>
+                </div>
+              </>
             )}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={checklistInput}
-                onChange={(e) => setChecklistInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addChecklistItem())}
-                placeholder="Add checklist item..."
-                className="flex-1 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                onClick={addChecklistItem}
-                className="px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-              >
-                Add
-              </button>
-            </div>
           </div>
         )}
       </div>

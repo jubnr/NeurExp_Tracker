@@ -3,6 +3,8 @@ import React, {
   Children,
   useRef,
   useLayoutEffect,
+  forwardRef,
+  useImperativeHandle,
   type ReactNode,
 } from 'react';
 import { motion, AnimatePresence, type Variants } from 'motion/react';
@@ -17,13 +19,17 @@ interface StepperProps {
   finalButtonText?: string;
 }
 
-export function Stepper({
+export interface StepperHandle {
+  advance: () => void;
+}
+
+export const Stepper = forwardRef<StepperHandle, StepperProps>(function Stepper({
   children,
   onStepChange,
   onComplete,
   nextButtonText = 'Done',
   finalButtonText = 'Complete',
-}: StepperProps) {
+}, ref) {
   const [currentStep, setCurrentStep] = useState(1);
   const [direction, setDirection] = useState(1);
   const steps = Children.toArray(children);
@@ -38,6 +44,8 @@ export function Stepper({
     if (next > total) onComplete?.();
     else onStepChange?.(next);
   };
+
+  useImperativeHandle(ref, () => ({ advance }));
 
   return (
     <div className="w-full">
@@ -76,7 +84,7 @@ export function Stepper({
       )}
     </div>
   );
-}
+});
 
 export function Step({ children }: { children: ReactNode }) {
   return <div>{children}</div>;

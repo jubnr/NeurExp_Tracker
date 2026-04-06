@@ -68,7 +68,8 @@ export interface Participant {
 export interface ChecklistItem {
   id: string;
   label: string;
-  image?: string; // base64 data URL
+  image?: string; // base64 data URL or IndexedDB key
+  machineType?: MachineType; // undefined = general (shown for all machines)
 }
 
 export interface Study {
