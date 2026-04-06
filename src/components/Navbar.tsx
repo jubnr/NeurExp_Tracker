@@ -52,7 +52,7 @@ export function Navbar() {
 
         {/* Export backup */}
         <button
-          onClick={exportBackup}
+          onClick={() => exportBackup().catch((err) => setImportError(err instanceof Error ? err.message : 'Export failed.'))}
           className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
           title="Export backup (JSON)"
         >

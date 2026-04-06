@@ -12,6 +12,7 @@ import type {
   Handedness,
 } from '../types';
 import { getAllImages, restoreAllImages } from './imageDB';
+import { idbGet, idbSet } from './studyDB';
 
 export function parseGender(raw: string): Gender | undefined {
   switch (raw.toLowerCase().trim()) {
@@ -611,8 +612,10 @@ function triggerDownload(content: string, filename: string, mime: string): void 
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
 export function downloadStudyReport(study: Study): void {
@@ -718,13 +721,25 @@ export function downloadParticipantsToImportTSV(participants: Participant[]): vo
 const STORAGE_KEY = 'neurexp-storage';
 
 export async function exportBackup(): Promise<void> {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return;
+  const raw = await idbGet(STORAGE_KEY);
+  if (!raw) throw new Error('No data found in storage.');
   const images = await getAllImages();
   const data = JSON.parse(raw);
   if (Object.keys(images).length > 0) data._images = images;
   const date = new Date().toISOString().split('T')[0];
-  triggerDownload(JSON.stringify(data), `neurexp-backup-${date}.json`, 'application/json');
+  const json = JSON.stringify(data);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const filename = `neurexp-backup-${date}.json`;
+  // Use window.location approach to bypass user-gesture restrictions after async gap
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function importBackup(file: File): Promise<void> {
@@ -739,7 +754,7 @@ export function importBackup(file: File): Promise<void> {
           await restoreAllImages(parsed._images);
           delete parsed._images;
         }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        await idbSet(STORAGE_KEY, JSON.stringify(parsed));
         resolve();
       } catch (err) {
         reject(err);
