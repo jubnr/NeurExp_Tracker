@@ -92,7 +92,7 @@ export function EditStudyModal({ open, onClose, study, onSave }: EditStudyModalP
 
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Sessions per participant
+              {study.machineTypes.length > 1 ? 'Session(s) per machine' : 'Sessions per participant'}
             </label>
             <input
               type="number"
@@ -105,27 +105,6 @@ export function EditStudyModal({ open, onClose, study, onSave }: EditStudyModalP
               study.participants.some((p) => p.machineTracks.some((t) => t.sessions.length > 0)) && (
               <p className="text-xs text-amber-600 mt-1">
                 Warning: existing sessions won't be affected — only progress counters will change.
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Runs per session
-            </label>
-            <input
-              type="number"
-              value={runsPerSession}
-              onChange={(e) => setRunsPerSession(Math.max(1, Number(e.target.value)))}
-              min={1}
-              className={inputClass}
-            />
-            {runsPerSession !== study.runsPerSession &&
-              study.participants.some((p) =>
-                p.machineTracks.some((t) => t.sessions.some((s) => s.runs.length > 0))
-              ) && (
-              <p className="text-xs text-amber-600 mt-1">
-                Warning: existing runs won't be deleted — only the expected count will change.
               </p>
             )}
           </div>
@@ -150,6 +129,27 @@ export function EditStudyModal({ open, onClose, study, onSave }: EditStudyModalP
                 </button>
               ))}
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Runs per session (resting-state included)
+            </label>
+            <input
+              type="number"
+              value={runsPerSession}
+              onChange={(e) => setRunsPerSession(Math.max(1, Number(e.target.value)))}
+              min={1}
+              className={inputClass}
+            />
+            {runsPerSession !== study.runsPerSession &&
+              study.participants.some((p) =>
+                p.machineTracks.some((t) => t.sessions.some((s) => s.runs.length > 0))
+              ) && (
+              <p className="text-xs text-amber-600 mt-1">
+                Warning: existing runs won't be deleted — only the expected count will change.
+              </p>
+            )}
           </div>
         </div>
 

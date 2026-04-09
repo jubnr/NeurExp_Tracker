@@ -135,24 +135,12 @@ export function CreateStudyModal({ open, onClose, onSubmit }: CreateStudyModalPr
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Sessions per participant
+              {machineTypes.length > 1 ? 'Session(s) per machine' : 'Sessions per participant'}
             </label>
             <input
               type="number"
               value={sessionsPerParticipant}
               onChange={(e) => setSessionsPerParticipant(Math.max(1, Number(e.target.value)))}
-              min={1}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Runs per session
-            </label>
-            <input
-              type="number"
-              value={runsPerSession}
-              onChange={(e) => setRunsPerSession(Math.max(1, Number(e.target.value)))}
               min={1}
               className={inputClass}
             />
@@ -177,6 +165,18 @@ export function CreateStudyModal({ open, onClose, onSubmit }: CreateStudyModalPr
                 </button>
               ))}
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Runs per session (resting-state included)
+            </label>
+            <input
+              type="number"
+              value={runsPerSession}
+              onChange={(e) => setRunsPerSession(Math.max(1, Number(e.target.value)))}
+              min={1}
+              className={inputClass}
+            />
           </div>
         </div>
 
